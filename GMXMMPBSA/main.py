@@ -154,9 +154,8 @@ class MMPBSA_App(object):
 
         if INPUT['alarun']:
             self.stdout.write('Mutating trajectories...\n')
-        _, mutant_residue = make_mutant_trajectories(INPUT, FILES,
-                                                                self.mpi_rank, self.external_progs['cpptraj'],
-                                                                self.normal_system, self.mutant_system, self.pre)
+        _, mutant_residue = make_mutant_trajectories(INPUT, FILES, self.mpi_rank, self.external_progs['cpptraj'],
+                                                     self.normal_system, self.mutant_system, self.pre)
 
         self.MPI.COMM_WORLD.Barrier()
 
@@ -578,7 +577,6 @@ class MMPBSA_App(object):
             self.INPUT['receptor_mask'], self.INPUT['ligand_mask'] = maketop.get_masks()
             self.mut_str = maketop.mut_label
             self.FILES.complex_fixed = self.FILES.prefix + 'COM_FIXED.pdb'
-            maketop.get_qm_residues() # get qm_residues in Amber format
 
         self.FILES = self.MPI.COMM_WORLD.bcast(self.FILES, root=0)
         self.INPUT = self.MPI.COMM_WORLD.bcast(self.INPUT, root=0)
@@ -591,7 +589,7 @@ class MMPBSA_App(object):
         self.timer.add_timer('setup', 'Total AMBER setup time:')
         self.timer.start_timer('setup')
         if not hasattr(self, 'FILES') or not hasattr(self, 'INPUT'):
-            raise GMXMMPBSA_ERROR('MMPBSA_App not set up! Cannot check parms yet!', InternalError)
+            GMXMMPBSA_ERROR('MMPBSA_App not set up! Cannot check parms yet!', InternalError)
         # create local aliases to avoid abundant selfs
         FILES, INPUT = self.FILES, self.INPUT
         if self.master:
@@ -726,9 +724,8 @@ class MMPBSA_App(object):
         if self.master:
             self.FILES = self.clparser.parse_args(args)
             # save args in gmx_MMPBSA.log
-            with open('gmx_MMPBSA.log', 'a') as log:
-                log.write('[INFO   ] Command-line\n'
-                          '    gmx_MMPBSA ' + ' '.join(args) + '\n')
+            logging.info('Command-line\n'
+                         '    gmx_MMPBSA ' + ' '.join(args) + '\n')
         else:
             self.FILES = object()
         # Broadcast the FILES
