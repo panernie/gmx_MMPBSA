@@ -119,7 +119,9 @@ class CheckMakeTop:
             self.pdb2prmtop()
             tops = self.makeToptleap()
 
-        self.reswithin()
+        self.INPUT['print_res'] = self.get_selected_residues(self.INPUT['print_res'])
+        self.INPUT['qm_residues'] = self.get_selected_residues(self.INPUT['qm_residues'])
+
         self.cleanup_trajs()
         return tops
 
@@ -612,29 +614,43 @@ class CheckMakeTop:
         lig_mask = ':' + ','.join(self.resi['LIG']['string'])
         return rec_mask, lig_mask
 
-    def get_qm_residues(self):
+    def get_selected_residues(self, select):
         """
         Convert string selection format to amber index list
         """
-        dist, exclude, res_selection = selector(self.INPUT['qm_residues'])
-        res_list = []
-        for i in self.resl['REC']:
-            rres = self.complex_str.residues[i - 1]
-            if [rres.chain, rres.number, rres.insertion_code] in res_selection:
-                res_list.append(i)
-                res_selection.remove([rres.chain, rres.number, rres.insertion_code])
-        for j in self.resl['LIG']:
-            lres = self.complex_str.residues[j - 1]
-            if [lres.chain, lres.number, lres.insertion_code] in res_selection:
-                res_list.append(j)
-                res_selection.remove([lres.chain, lres.number, lres.insertion_code])
-
-        res_list.sort()
-        self.INPUT['qm_residues'] = ','.join([str(x) for x in res_list])
+        dist, exclude, res_selection = selector(select)
+        sele_res = []
+        if dist:
+            for i in self.resl['REC']:
+                for j in self.resl['LIG']:
+                    for rat in self.complex_str.residues[i - 1].atoms:
+                        rat_coor = [rat.xx, rat.xy, rat.xz]
+                        for lat in self.complex_str.residues[j - 1].atoms:
+                            lat_coor = [lat.xx, lat.xy, lat.xz]
+                            if get_dist(rat_coor, lat_coor) <= dist:
+                                if i not in sele_res and exclude != 'REC':
+                                    sele_res.append(i)
+                                if j not in sele_res and exclude != 'LIG':
+                                    sele_res.append(j)
+                                break
+        elif res_selection:
+            for i in self.resl['REC']:
+                rres = self.complex_str.residues[i - 1]
+                if [rres.chain, rres.number, rres.insertion_code] in res_selection:
+                    sele_res.append(i)
+                    print(res_selection, [rres.chain, rres.number, rres.insertion_code])
+                    res_selection.remove([rres.chain, rres.number, rres.insertion_code])
+            for j in self.resl['LIG']:
+                lres = self.complex_str.residues[j - 1]
+                if [lres.chain, lres.number, lres.insertion_code] in res_selection:
+                    sele_res.append(j)
+                    res_selection.remove([lres.chain, lres.number, lres.insertion_code])
+        sele_res.sort()
         if res_selection:
             for res in res_selection:
-                GMXMMPBSA_WARNING("qm_residues: We couldn't find this residue CHAIN:{} RES_NUM:{} ICODE: "
+                GMXMMPBSA_WARNING("We couldn't find this residue CHAIN:{} RES_NUM:{} ICODE: "
                                   "{}".format(*res))
+        return sele_res
 
     def res2map(self):
         """
