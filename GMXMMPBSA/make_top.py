@@ -85,9 +85,9 @@ class CheckMakeTop:
         self.receptor_pmrtop = 'REC.prmtop'
         self.ligand_pmrtop = 'LIG.prmtop'
 
-        self.mutant_complex_pmrtop = 'MUT_COM.prmtop'
-        self.mutant_receptor_pmrtop = 'MUT_REC.prmtop'
-        self.mutant_ligand_pmrtop = 'MUT_LIG.prmtop'
+        self.mutant_complex_pmrtop = 'MUT_COM{}.prmtop'
+        self.mutant_receptor_pmrtop = 'MUT_REC{}.prmtop'
+        self.mutant_ligand_pmrtop = 'MUT_LIG{}.prmtop'
 
         self.complex_temp_top = self.FILES.prefix + 'COM.top'
         self.receptor_temp_top = self.FILES.prefix + 'COM.top'
@@ -330,8 +330,6 @@ class CheckMakeTop:
 
         # IMPORTANT: make_trajs ends in error if the box is defined
         com_amb_prm.box = None
-        # except TypeError as err:
-        #     GMXMMPBSA_ERROR(str(err))
 
         self.fixparm2amber(com_amb_prm)
 
@@ -406,38 +404,41 @@ class CheckMakeTop:
         if self.INPUT['alarun']:
             logging.info('Building Mutant Complex Topology...')
             # get mutation index in complex
-            com_mut_index, part_mut, part_index, self.mut_label = self.getMutationIndex()
-            mut_com_amb_prm = self.makeMutTop(com_amb_prm, com_mut_index)
-            # change de PBRadii
-            action = ChRad(mut_com_amb_prm, PBRadii[self.INPUT['PBRadii']])
-            mut_com_amb_prm.write_parm(self.mutant_complex_pmrtop)
+            mut_info = self.getMutationInfo()
+            for m in mut_info:
+                com_mut_index, part_mut, part_index, mut_labellist = m
+                # com_mut_index, part_mut, part_index, self.mut_label = self.getMutationInfo()
+                mut_com_amb_prm = self.makeMutTop(com_amb_prm, com_mut_index)
+                # change de PBRadii
+                action = ChRad(mut_com_amb_prm, PBRadii[self.INPUT['PBRadii']])
+                mut_com_amb_prm.write_parm(self.mutant_complex_pmrtop.format(f"{mut_labellist[1]}{mut_labellist[2]}"))
 
-            if part_mut == 'REC':
-                logging.info('Detecting mutation in Receptor. Building Mutant Receptor Topology...')
-                mut_com_amb_prm.strip(f'!:{rec_indexes_string}')
-                mdata = [self.mutant_receptor_pmrtop, 'REC']
-                self.mutant_ligand_pmrtop = None
-                if rec_hastop:
-                    mtop = self.makeMutTop(rec_amb_prm, part_index)
+                if part_mut == 'REC':
+                    logging.info('Detecting mutation in Receptor. Building Mutant Receptor Topology...')
+                    mut_com_amb_prm.strip(f'!:{rec_indexes_string}')
+                    mdata = [self.mutant_receptor_pmrtop, 'REC']
+                    self.mutant_ligand_pmrtop = None
+                    if rec_hastop:
+                        mtop = self.makeMutTop(rec_amb_prm, part_index)
+                    else:
+                        mtop = mut_com_amb_prm
                 else:
-                    mtop = mut_com_amb_prm
-            else:
-                logging.info('Detecting mutation in Ligand. Building Mutant Ligand Topology...')
-                mut_com_amb_prm.strip(f':{rec_indexes_string}')
-                mdata = [self.mutant_ligand_pmrtop, 'LIG']
-                self.mutant_receptor_pmrtop = None
-                if lig_hastop:
-                    mtop = self.makeMutTop(lig_amb_prm, part_index)
-                else:
-                    mtop = mut_com_amb_prm
+                    logging.info('Detecting mutation in Ligand. Building Mutant Ligand Topology...')
+                    mut_com_amb_prm.strip(f':{rec_indexes_string}')
+                    mdata = [self.mutant_ligand_pmrtop, 'LIG']
+                    self.mutant_receptor_pmrtop = None
+                    if lig_hastop:
+                        mtop = self.makeMutTop(lig_amb_prm, part_index)
+                    else:
+                        mtop = mut_com_amb_prm
 
-            if com_top_parm == 'charmm':
-                mut_prot_amb_prm = parmed.amber.ChamberParm.from_structure(mtop)
-            else:
-                mut_prot_amb_prm = parmed.amber.AmberParm.from_structure(mtop)
-            # change de PBRadii
-            action = ChRad(mut_prot_amb_prm, PBRadii[self.INPUT['PBRadii']])
-            mut_prot_amb_prm.write_parm(mdata[0])
+                if com_top_parm == 'charmm':
+                    mut_prot_amb_prm = parmed.amber.ChamberParm.from_structure(mtop)
+                else:
+                    mut_prot_amb_prm = parmed.amber.AmberParm.from_structure(mtop)
+                # change de PBRadii
+                action = ChRad(mut_prot_amb_prm, PBRadii[self.INPUT['PBRadii']])
+                mut_prot_amb_prm.write_parm(mdata[0])
         else:
             self.mutant_complex_pmrtop = None
 
@@ -483,83 +484,54 @@ class CheckMakeTop:
             lig.save(lig_file, 'pdb', True, renumber=False)
             self.ligand_list[f'LIG{c}'] = lig_file
             c += 1
-        self.mut_receptor_list = {}
-        self.mut_ligand_list = {}
+
+        self.mutants_dict = {'receptor': [], 'ligand': []}
 
         if self.INPUT['alarun']:
-            com_mut_index, part_mut, part_index, self.mut_label = self.getMutationIndex()
-            if part_mut == 'REC':
-                logging.info('Detecting mutation in Receptor. Building Mutant Receptor Structure...')
-                self.mutant_ligand_pmrtop = None
-                start = 1
-                c = 1
-                for r in self.resi['REC']['num']:
-                    end = start + (r[1] - r[0])
-                    mask = f'!:{start}-{end}'
-                    start += end
-                    rec = self.molstr(self.receptor_str)
-                    mut_rec = self.makeMutTop(rec, part_index, True)
-                    mut_rec.strip(mask)
-                    mut_rec_file = self.FILES.prefix + f'MUT_REC_F{c}.pdb'
-                    mut_rec.save(mut_rec_file, 'pdb', True, renumber=False)
-                    self.mut_receptor_list[f'MREC{c}'] = mut_rec_file
-                    c += 1
-            else:
-                logging.info('Detecting mutation in Ligand.Building Mutant Ligand Structure...')
-                self.mutant_receptor_pmrtop = None
-                start = 1
-                c = 1
-                for r in self.resi['LIG']['num']:
-                    end = start + (r[1] - r[0])
-                    mask = f'!:{start}-{end}'
-                    start += end
-                    lig = self.molstr(self.ligand_str)
-                    mut_lig = self.makeMutTop(lig, part_index, True)
-                    mut_lig.strip(mask)
-                    mut_lig_file = self.FILES.prefix + f'MUT_LIG_F{c}.pdb'
-                    mut_lig.save(mut_lig_file, 'pdb', True, renumber=False)
-                    self.mut_ligand_list[f'MLIG{c}'] = mut_lig_file
-                    c += 1
 
-    def reswithin(self):
-        # Get residue form receptor-ligand interface
-        if self.INPUT['decomprun']:
-            if self.INPUT['print_res'] == 'all':
-                return
-            else:
-                dist, exclude, res_selection = selector(self.INPUT['print_res'])
-                res_list = []
+            mut_info = self.getMutationInfo()
+            for m in mut_info:
+                com_mut_index, part_mut, part_index, mut_labellist = m
 
-                if dist:
-                    for i in self.resl['REC']:
-                        for j in self.resl['LIG']:
-                            for rat in self.complex_str.residues[i - 1].atoms:
-                                rat_coor = [rat.xx, rat.xy, rat.xz]
-                                for lat in self.complex_str.residues[j - 1].atoms:
-                                    lat_coor = [lat.xx, lat.xy, lat.xz]
-                                    if get_dist(rat_coor, lat_coor) <= dist:
-                                        if i not in res_list and exclude != 'REC':
-                                            res_list.append(i)
-                                        if j not in res_list and exclude != 'LIG':
-                                            res_list.append(j)
-                                        break
-                elif res_selection:
-                    for i in self.resl['REC']:
-                        rres = self.complex_str.residues[i - 1]
-                        if [rres.chain, rres.number, rres.insertion_code] in res_selection:
-                            res_list.append(i)
-                            res_selection.remove([rres.chain, rres.number, rres.insertion_code])
-                    for j in self.resl['LIG']:
-                        lres = self.complex_str.residues[j - 1]
-                        if [lres.chain, lres.number, lres.insertion_code] in res_selection:
-                            res_list.append(j)
-                            res_selection.remove([lres.chain, lres.number, lres.insertion_code])
-                res_list.sort()
-                self.INPUT['print_res'] = ','.join([str(x) for x in res_list])
-                if res_selection:
-                    for res in res_selection:
-                        GMXMMPBSA_WARNING("We couldn't find this residue CHAIN:{} RES_NUM:{} ICODE: {}".format(*res))
-
+            # com_mut_index, part_mut, part_index, self.mut_label = self.getMutationInfo()
+                if part_mut == 'REC':
+                    logging.info(f"Detecting mutation ({mut_labellist[1]}{mut_labellist[2]}) in Receptor. Building Mutant Receptor Structure...")
+                    self.mutant_ligand_pmrtop = None
+                    self.mut_receptor_list = {}
+                    start = 1
+                    c = 1
+                    for r in self.resi['REC']['num']:
+                        end = start + (r[1] - r[0])
+                        mask = f'!:{start}-{end}'
+                        start += end
+                        rec = self.molstr(self.receptor_str)
+                        mut_rec = self.makeMutTop(rec, part_index, True)
+                        mut_rec.strip(mask)
+                        mut_rec_file = (self.FILES.prefix +
+                                        f"MUT_{mut_labellist[1]}{mut_labellist[2]}_REC_F{c}.pdb")
+                        mut_rec.save(mut_rec_file, 'pdb', True, renumber=False)
+                        self.mut_receptor_list[f"MREC{mut_labellist[1]}{mut_labellist[2]}{c}"] = mut_rec_file
+                        c += 1
+                    self.mutants_dict['receptor'].append(self.mut_receptor_list)
+                else:
+                    logging.info('Detecting mutation in Ligand.Building Mutant Ligand Structure...')
+                    self.mutant_receptor_pmrtop = None
+                    self.mut_ligand_list = {}
+                    start = 1
+                    c = 1
+                    for r in self.resi['LIG']['num']:
+                        end = start + (r[1] - r[0])
+                        mask = f'!:{start}-{end}'
+                        start += end
+                        lig = self.molstr(self.ligand_str)
+                        mut_lig = self.makeMutTop(lig, part_index, True)
+                        mut_lig.strip(mask)
+                        mut_lig_file = (self.FILES.prefix +
+                                        f"MUT_{mut_labellist[1]}{mut_labellist[2]}_LIG_F{c}.pdb")
+                        mut_lig.save(mut_lig_file, 'pdb', True, renumber=False)
+                        self.mut_ligand_list[f'MLIG{mut_labellist[1]}{mut_labellist[2]}{c}'] = mut_lig_file
+                        c += 1
+                    self.mutants_dict['ligand'].append(self.mut_ligand_list)
     @staticmethod
     def cleantop(top_file, ndx):
         """
@@ -771,55 +743,36 @@ class CheckMakeTop:
         if removeH:
             structure.strip('@/H')
 
-    def getMutationIndex(self):
-        label = ''
+    def getMutationInfo(self):
+        labels = []
         icode_ = ''
         if not self.INPUT['mutant_res']:
             GMXMMPBSA_ERROR("No residue for mutation was defined")
-        not_list = self.INPUT['mutant_res'].split(':')
-        if len(not_list) == 2:
-            chain_, resnum_ = not_list
-        elif len(not_list) == 3:
-            chain_, resnum_, icode_ = not_list
-        else:
-            GMXMMPBSA_ERROR("Wrong notation... You most define the residue to mutate as follow: CHAIN:RES_NUMBER or "
-                            "CHAIN:RES_NUMBER:INSERTION_CODE")
-        chain = str(chain_).strip().upper()
-        resnum = int(str(resnum_).strip())
-        icode = str(icode_).strip().upper()
 
-        if not chain or not resnum:
-            GMXMMPBSA_ERROR("Wrong notation... You most define the residue to mutate as follow: CHAIN:RES_NUMBER or "
-                            "CHAIN:RES_NUMBER:INSERTION_CODE")
-        idx = 1
-        for res in self.complex_str.residues:
-            if res.number == int(resnum) and res.chain == chain and res.insertion_code == icode:
-                try:
-                    parmed.residue.AminoAcidResidue.get(res.name, True)
-                except KeyError as e:
-                    GMXMMPBSA_ERROR(f'You attempt to mutate {res.chain}:{res.name}. The mutation must be an amino acid '
-                                    f'residue...')
-                label = f"{res.name}[{res.chain}:{res.number}]{self.INPUT['mutant']}"
-                if icode:
-                    label = f"{res.name}[{res.chain}:{res.number}:{res.insertion_code}]{self.INPUT['mutant']}"
-                break
-            idx += 1
-
-        if idx in self.resl['REC']:
-            part_index = self.resl['REC'].index(idx)
-            part_mut = 'REC'
-        elif idx in self.resl['LIG']:
-            part_index = self.resl['LIG'].index(idx)
-            part_mut = 'LIG'
-        else:
-            part_index = None
-            part_mut = None
-            if icode:
-                GMXMMPBSA_ERROR(f'Residue {chain}:{resnum}:{icode} not found')
+        # dict = { resind: [chain, resnum, icode]
+        sele_res_dict = self.get_selected_residues(self.INPUT['mutant_res'])
+        info = []
+        for r in sele_res_dict:
+            res = self.complex_str.residues[r]
+            # label = (f"{res.name}[{res.chain}:{res.number}:{res.insertion_code}]{self.INPUT['mutant']}" if
+            #          res.insertion_code else f"{res.name}[{res.chain}:{res.number}]{self.INPUT['mutant']}")
+            label_list = ([res.name, res.chain, str(res.number), res.insertion_code] if res.insertion_code
+                          else [res.name, res.chain, str(res.number)])
+            if r in self.resl['REC']:
+                part_index = self.resl['REC'].index(r)
+                part_mut = 'REC'
+            elif r in self.resl['LIG']:
+                part_index = self.resl['LIG'].index(r)
+                part_mut = 'LIG'
             else:
-                GMXMMPBSA_ERROR(f'Residue {chain}:{resnum} not found')
-
-        return (idx, part_mut, part_index, label)
+                part_index = None
+                part_mut = None
+                if res.insertion_code:
+                    GMXMMPBSA_ERROR(f'Residue {res.chain}:{res.number}:{res.insertion_code} not found')
+                else:
+                    GMXMMPBSA_ERROR(f'Residue {res.chain}:{res.number} not found')
+            info.append([r, part_mut, part_index, label_list])
+        return info
 
     def makeMutTop(self, wt_top, mut_index, pdb=False):
         """
@@ -1170,10 +1123,8 @@ class CheckMakeTop:
         else:
             # data is Structure, AmberParm, ChamberParm or GromacsTopologyFile. This make a copy
             structure = data.__copy__()
-            c = 1
-            for at in structure.atoms:
+            for c, at in enumerate(structure.atoms, start=1):
                 at.number = c
-                c += 1
         return structure
 
     def makeToptleap(self):
