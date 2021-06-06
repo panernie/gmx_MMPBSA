@@ -81,6 +81,8 @@ class MMPBSA_App(object):
         _MPI = self.MPI = MPI
         self.pre = '_GMXMMPBSA_'
         self.INPUT = {}
+        self.mutant_system = {}
+        self.mutant_info = {}
         if stdout is None:
             _stdout = self.stdout = _unbuf_stdout
         else:
@@ -660,7 +662,6 @@ class MMPBSA_App(object):
             logging.info('Loading and checking parameter files for compatibility...\n')
         self.normal_system = MMPBSA_System(FILES.complex_prmtop, FILES.receptor_prmtop, FILES.ligand_prmtop)
         self.using_chamber = self.normal_system.complex_prmtop.chamber
-        self.mutant_system = {}
         if INPUT['alarun']:
             # if (FILES.mutant_receptor_prmtop is None and FILES.mutant_ligand_prmtop is None and not self.stability):
             #     GMXMMPBSA_ERROR('Alanine scanning requires either a mutated receptor or mutated ligand topology '
@@ -744,28 +745,7 @@ class MMPBSA_App(object):
         self.timer.print_('setup', self.stdout)
 
         if not self.FILES.rewrite_output:
-            self.timer.print_('cpptraj', self.stdout)
-
-            if self.INPUT['alarun']:
-                self.timer.print_('muttraj', self.stdout)
-
-            self.timer.print_('calc', self.stdout)
-            self.stdout.write('\n')
-
-            if self.INPUT['gbrun']:
-                self.timer.print_('gb', self.stdout)
-
-            if self.INPUT['pbrun']:
-                self.timer.print_('pb', self.stdout)
-
-            if self.INPUT['nmoderun']:
-                self.timer.print_('nmode', self.stdout)
-
-            if self.INPUT['qh_entropy']:
-                self.timer.print_('qh', self.stdout)
-
-            self.stdout.write('\n')
-
+            self._finalize_timers()
         self.timer.print_('output', self.stdout)
         self.timer.print_('global', self.stdout)
 
@@ -791,6 +771,29 @@ class MMPBSA_App(object):
             logging.error('Unable to start gmx_MMPBSA_ana...')
         logging.info('Finalized...')
         sys.exit(end)
+
+    def _finalize_timers(self):
+        self.timer.print_('cpptraj', self.stdout)
+
+        if self.INPUT['alarun']:
+            self.timer.print_('muttraj', self.stdout)
+
+        self.timer.print_('calc', self.stdout)
+        self.stdout.write('\n')
+
+        if self.INPUT['gbrun']:
+            self.timer.print_('gb', self.stdout)
+
+        if self.INPUT['pbrun']:
+            self.timer.print_('pb', self.stdout)
+
+        if self.INPUT['nmoderun']:
+            self.timer.print_('nmode', self.stdout)
+
+        if self.INPUT['qh_entropy']:
+            self.timer.print_('qh', self.stdout)
+
+        self.stdout.write('\n')
 
     def get_cl_args(self, args=None):
         """
@@ -1096,10 +1099,7 @@ class MMPBSA_App(object):
         else:
             BindClass = MultiTrajBinding
         # Determine if our GB is QM/MM or not
-        if INPUT['ifqnt']:
-            GBClass = QMMMout
-        else:
-            GBClass = GBout
+        GBClass = QMMMout if INPUT['ifqnt'] else GBout
         # Determine which kind of RISM output class we are based on std/gf and
         # polardecomp
         if INPUT['polardecomp']:

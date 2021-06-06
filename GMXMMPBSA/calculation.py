@@ -527,7 +527,6 @@ class CopyCalc(Calculation):
         orig_name = self.orig_name % rank if '%d' in self.orig_name else self.orig_name
         final_name = self.final_name % rank if '%d' in self.final_name else self.final_name
 
-        print(orig_name, final_name, 'orig_name, final_name, ')
         copy(orig_name, final_name)
 
 #+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+

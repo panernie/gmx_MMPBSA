@@ -121,8 +121,10 @@ class CheckMakeTop:
             self.pdb2prmtop()
             tops = self.makeToptleap()
 
-        self.INPUT['print_res'] = self.get_selected_residues(self.INPUT['print_res'])
-        self.INPUT['qm_residues'] = self.get_selected_residues(self.INPUT['qm_residues'])
+        if self.INPUT['decomprun']:
+            self.INPUT['print_res'] = self.get_selected_residues(self.INPUT['print_res'])
+        if self.INPUT['qm_residues']:
+            self.INPUT['qm_residues'] = self.get_selected_residues(self.INPUT['qm_residues'])
 
         self.cleanup_trajs()
         return tops
@@ -492,7 +494,6 @@ class CheckMakeTop:
             mut_info = self.getMutationInfo()
             for m in mut_info:
                 com_mut_index, part_mut, part_index, labels = m
-                print(m, '#########')
                 self.mutant_info[f'{labels[1]}{labels[2]}'] = SimpleNamespace(loc=part_mut, rec_frags=[], lig_frags=[],
                                                                               label=f'{labels[1]}{labels[2]}',
                     complex_prmtop=self.mutant_complex_pmrtop.format(f"_{labels[1]}{labels[2]}"),
@@ -514,7 +515,6 @@ class CheckMakeTop:
                         rec = self.molstr(self.receptor_str)
                         mut_rec = self.makeMutTop(rec, part_index, True)
                         mut_rec.strip(mask)
-                        print(mut_rec.residues[part_index])
 
                         mut_rec_file = (self.FILES.prefix +
                                         f"MUT_{labels[1]}{labels[2]}_REC_F{c}.pdb")
@@ -619,7 +619,6 @@ class CheckMakeTop:
                 rres = self.complex_str.residues[i - 1]
                 if [rres.chain, rres.number, rres.insertion_code] in res_selection:
                     sele_res.append(i)
-                    print(res_selection, 'sele',[rres.chain, rres.number, rres.insertion_code])
                     res_selection.remove([rres.chain, rres.number, rres.insertion_code])
             for j in self.resl['LIG']:
                 lres = self.complex_str.residues[j - 1]
@@ -631,7 +630,6 @@ class CheckMakeTop:
             for res in res_selection:
                 GMXMMPBSA_WARNING("We couldn't find this residue CHAIN:{} RES_NUM:{} ICODE: "
                                   "{}".format(*res))
-        print(sele_res)
         return sele_res
 
     def res2map(self):
@@ -714,7 +712,7 @@ class CheckMakeTop:
             # change residues name according to AMBER
             if residue.name == 'LYS':
                 atoms = [atom.name for atom in residue.atoms]
-                if not 'HZ3' in atoms:
+                if 'HZ3' not in atoms:
                     residue.name = 'LYN'
             elif residue.name == 'ASP':
                 atoms = [atom.name for atom in residue.atoms]
@@ -761,7 +759,6 @@ class CheckMakeTop:
 
         # dict = { resind: [chain, resnum, icode]
         sele_res_dict = self.get_selected_residues(self.INPUT['mutant_res'])
-        print(sele_res_dict)
 
         info = []
         for r in sele_res_dict:
@@ -770,11 +767,9 @@ class CheckMakeTop:
             #          res.insertion_code else f"{res.name}[{res.chain}:{res.number}]{self.INPUT['mutant']}")
             label_list = ([res.name, res.chain, str(res.number), res.insertion_code] if res.insertion_code
                           else [res.name, res.chain, str(res.number)])
-            print(label_list, res, 'labels')
 
             if r in self.resl['REC']:
                 part_index = self.resl['REC'].index(r)
-                print(part_index, 'partindex')
                 part_mut = 'REC'
             elif r in self.resl['LIG']:
                 part_index = self.resl['LIG'].index(r)
@@ -905,8 +900,6 @@ class CheckMakeTop:
                     else:
                         GMXMMPBSA_WARNING(f"Unclassified mutant residue {mut_top.residues[mut_index].name}. The "
                                           f"default indi will be used")
-
-        print(mut_top.residues[mut_index].name, 'name')
 
         mut_top.residues[mut_index].name = mut_aa
         ind = 0
@@ -1203,8 +1196,6 @@ class CheckMakeTop:
         if self.INPUT['alarun']:
             with open(self.FILES.prefix + 'mut_leap.in', 'w') as mtif:
                 self._write_ff(mtif)
-
-                print(self.mutant_info)
 
                 for c, mut in enumerate(self.mutant_info):
                     if self.mutant_info[mut].loc == 'REC':
