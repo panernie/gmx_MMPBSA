@@ -262,10 +262,9 @@ class MMPBSA_App(object):
             progs['gb'] = self.external_progs['sander']
 
         # NetCDF or ASCII intermediate trajectories?
-        if self.INPUT['netcdf']:
-            trj_sfx = 'nc'
-        else:
-            trj_sfx = 'mdcrd'
+        trj_sfx = 'nc' if self.INPUT['netcdf'] else 'mdcrd'
+
+        mut_label = ''
 
         # Determine if we just copy the receptor files. This only happens if we
         # are doing mutant calculations, we're not only doing the mutant, and the
