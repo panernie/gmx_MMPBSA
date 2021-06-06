@@ -27,6 +27,7 @@ from GMXMMPBSA.utils import checkff, selector, get_dist, list2range, Residue
 from GMXMMPBSA.alamdcrd import _scaledistance
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 import logging
 import string
 from parmed.tools.changeradii import ChRad
@@ -66,6 +67,7 @@ class CheckMakeTop:
         self.log = open('gmx_MMPBSA.log', 'a')
 
         self.mut_label = None
+        self.mutant_info = {} # {'loc': [], 'mut_rec': [], 'mut_lig': [], 'labels': [], 'prmtop': []}
 
         # Define Gromacs executable
         self.make_ndx = self.external_progs['make_ndx']
@@ -491,15 +493,22 @@ class CheckMakeTop:
 
             mut_info = self.getMutationInfo()
             for m in mut_info:
-                com_mut_index, part_mut, part_index, mut_labellist = m
-
-            # com_mut_index, part_mut, part_index, self.mut_label = self.getMutationInfo()
+                com_mut_index, part_mut, part_index, labels = m
+                print(m, '#########')
+                self.mutant_info[f'{labels[1]}{labels[2]}'] = SimpleNamespace(loc=part_mut, rec_frags=[], lig_frags=[],
+                                                                              label=f'{labels[1]}{labels[2]}',
+                    complex_prmtop=self.mutant_complex_pmrtop.format(f"_{labels[1]}{labels[2]}"),
+                    receptor_prmtop=(self.mutant_receptor_pmrtop.format(f"_{labels[1]}{labels[2]}") if part_mut == 'REC'
+                                else self.receptor_pmrtop),
+                    ligand_prmtop=(self.mutant_ligand_pmrtop.format(f"_{labels[1]}{labels[2]}") if part_mut == 'LIG'
+                                else self.ligand_pmrtop))
+                # com_mut_index, part_mut, part_index, self.mut_label = self.getMutationInfo()
+                start = 1
+                c = 1
                 if part_mut == 'REC':
-                    logging.info(f"Detecting mutation ({mut_labellist[1]}{mut_labellist[2]}) in Receptor. Building Mutant Receptor Structure...")
-                    self.mutant_ligand_pmrtop = None
-                    self.mut_receptor_list = {}
-                    start = 1
-                    c = 1
+                    logging.info(f"Detecting mutation ({labels[1]}{labels[2]}) in Receptor. Building "
+                                 f"Mutant Receptor Structure...")
+                    mut_receptor_list = {}
                     for r in self.resi['REC']['num']:
                         end = start + (r[1] - r[0])
                         mask = f'!:{start}-{end}'
@@ -508,9 +517,10 @@ class CheckMakeTop:
                         mut_rec = self.makeMutTop(rec, part_index, True)
                         mut_rec.strip(mask)
                         mut_rec_file = (self.FILES.prefix +
-                                        f"MUT_{mut_labellist[1]}{mut_labellist[2]}_REC_F{c}.pdb")
+                                        f"MUT_{labels[1]}{labels[2]}_REC_F{c}.pdb")
                         mut_rec.save(mut_rec_file, 'pdb', True, renumber=False)
-                        self.mut_receptor_list[f"MREC{mut_labellist[1]}{mut_labellist[2]}{c}"] = mut_rec_file
+                        self.mutant_info[f'{labels[1]}{labels[2]}'].rec_frags.append(mut_rec_file)
+                        # mut_receptor_list[f"MREC{mut_labellist[1]}{mut_labellist[2]}_{c}"] = mut_rec_file
                         c += 1
                     self.mutants_dict['receptor'].append(self.mut_receptor_list)
                 else:
@@ -1206,37 +1216,44 @@ class CheckMakeTop:
                 self._write_ff(mtif)
 
 
-                if self.mutant_receptor_pmrtop:
-                    REC = []
-                    for mrec in self.mut_receptor_list:
-                        REC.append(f'{mrec}')
-                        mtif.write(f'{mrec} = loadpdb {self.mut_receptor_list[mrec]}\n')
-                    mrec_out = ' '.join(REC)
+                for c, mut in enumerate(self.mutant_info):
+                    if self.mutant_info[mut].loc == 'REC':
+                        REC = []
+                        for d, mrec in enumerate(self.mutant_info[mut].rec_frags, start=1):
+                            REC.append(f'{mut}_MREC{d}')
+                            mtif.write(f"{mut}_MREC{d} = loadpdb {mrec}\n")
+                        mrec_out = ' '.join(REC)
+                # if self.mutant_receptor_pmrtop:
+                #     REC = []
+                #     for mrec in self.mut_receptor_list:
+                #         REC.append(f'{mrec}')
+                #         mtif.write(f'{mrec} = loadpdb {self.mut_receptor_list[mrec]}\n')
+                #     mrec_out = ' '.join(REC)
 
-                    if not self.FILES.stability:
-                        mtif.write(f'MREC_OUT = combine {{ {mrec_out} }}\n')
-                        mtif.write('saveamberparm MREC_OUT {t} {p}MUT_REC.inpcrd\n'.format(t=self.mutant_receptor_pmrtop,
-                                                                                         p=self.FILES.prefix))
-                    else:
-                        self.mutant_receptor_pmrtop = None
-                    # check if ligand is not protein and always load
-                    if self.FILES.ligand_mol2:
-                        mtif.write('LIG1 = loadmol2 {}\n'.format(self.FILES.ligand_mol2))
-                        self.mutant_ligand_pmrtop = None
                         if not self.FILES.stability:
-                            mtif.write('check LIG1\n')
-                            mtif.write('loadamberparams {}\n'.format(self.ligand_frcmod))
-                        else:
+                            mtif.write(f'{mut}_MREC_OUT{c} = combine {{ {mrec_out} }}\n')
+                            mtif.write(f"saveamberparm {mut}_MREC_OUT{c} "
+                                       f"{self.mutant_info[mut].receptor_prmtop} {self.FILES.prefix}MUT_REC_{mut}.inpcrd\n")
+                        # else:
+                        #     self.mutant_info['prmtop'].append(None)
+                        # check if ligand is not protein and always load
+                        if self.FILES.ligand_mol2:
+                            mtif.write('LIG1 = loadmol2 {}\n'.format(self.FILES.ligand_mol2))
                             self.mutant_ligand_pmrtop = None
+                            if self.FILES.stability:
+                                self.mutant_ligand_pmrtop = None
+                            else:
+                                mtif.write('check LIG1\n')
+                                mtif.write('loadamberparams {}\n'.format(self.ligand_frcmod))
+                        else:
+                            for lig in self.ligand_list:
+                                mtif.write(f'{lig} = loadpdb {self.ligand_list[lig]}\n')
                     else:
-                        for lig in self.ligand_list:
-                            mtif.write(f'{lig} = loadpdb {self.ligand_list[lig]}\n')
-                else:
-                    LIG = []
-                    for mlig in self.mut_ligand_list:
-                        LIG.append(f'{mlig}')
-                        mtif.write(f'{mlig} = loadpdb {self.mut_ligand_list[mlig]}\n')
-                    mlig_out = ' '.join(LIG)
+                        LIG = []
+                        for mlig in self.mut_ligand_list:
+                            LIG.append(f'{mlig}')
+                            mtif.write(f'{mlig} = loadpdb {self.mut_ligand_list[mlig]}\n')
+                        mlig_out = ' '.join(LIG)
 
                     if not self.FILES.stability:
                         mtif.write(f'MLIG_OUT = combine {{ {mlig_out} }}\n')
@@ -1247,32 +1264,54 @@ class CheckMakeTop:
                     for rec in self.receptor_list:
                         mtif.write(f'{rec} = loadpdb {self.receptor_list[rec]}\n')
 
-                MCOM = []
-                l = 0
-                r = 0
-                i = 0
-                for e in self.orderl:
-                    if e in ['R', 'REC']:
-                        MCOM.append(REC[r])
-                        r += 1
-                    else:
-                        MCOM.append(LIG[l])
-                        l += 1
-                    i += 1
-                mcom_out = ' '.join(MCOM)
-                mtif.write(f'MCOM_OUT = combine {{ {mcom_out} }}\n')
-                mtif.write('saveamberparm MCOM_OUT {t} {p}MUT_COM.inpcrd\n'.format(t=self.mutant_complex_pmrtop,
-                                                                               p=self.FILES.prefix))
+                    MCOM = self._set_com_order(REC, LIG)
+                    mcom_out = ' '.join(MCOM)
+                    mtif.write(f"{mut}_MCOM_OUT{c} = combine {{ {mcom_out} }}\n")
+                    mtif.write(f"saveamberparm {mut}_MCOM_OUT{c} {self.mutant_info[mut].complex_prmtop}"
+                               f" {self.FILES.prefix}MUT_COM_{mut}.inpcrd\n")
                 mtif.write('quit')
 
-            tleap_args = [tleap, '-f', '{}'.format(self.FILES.prefix + 'mut_leap.in'), '-I', data_path.as_posix() ]
-            if self.INPUT['debug_printlevel']:
-                logging.info('Running command: ' + ' '.join(tleap_args))
-            p1 = subprocess.Popen(tleap_args, stdout=self.log, stderr=self.log)
-            if p1.wait():
-                GMXMMPBSA_ERROR('%s failed when querying %s' % (tleap, self.FILES.prefix + 'mut_leap.in'))
-        else:
-            self.mutant_complex_pmrtop = None
+            self._run_tleap(tleap, 'mut_leap.in', data_path)
+        # else:
+        #     self.mutant_complex_pmrtop = None
 
-        return (self.complex_pmrtop, self.receptor_pmrtop, self.ligand_pmrtop, self.mutant_complex_pmrtop,
-                self.mutant_receptor_pmrtop, self.mutant_ligand_pmrtop)
+        com_prmtops = []
+        rec_prmtops = []
+        lig_prmtops = []
+        for x in self.mutant_info:
+            com_prmtops.append(self.mutant_info[x].complex_prmtop)
+            rec_prmtops.append(self.mutant_info[x].receptor_prmtop)
+            lig_prmtops.append(self.mutant_info[x].ligand_prmtop)
+
+        return (self.complex_pmrtop, self.receptor_pmrtop, self.ligand_pmrtop, com_prmtops, rec_prmtops,
+                lig_prmtops, self.mutant_info)
+
+    def _run_tleap(self, tleap, arg1, data_path):
+        tleap_args = [
+            tleap,
+            '-f',
+            '{}'.format(self.FILES.prefix + arg1),
+            '-I',
+            data_path.as_posix(),
+        ]
+
+        if self.INPUT['debug_printlevel']:
+            logging.info('Running command: ' + ' '.join(tleap_args))
+        p1 = subprocess.Popen(tleap_args, stdout=self.log, stderr=self.log)
+        if p1.wait():
+            GMXMMPBSA_ERROR(
+                '%s failed when querying %s' % (tleap, self.FILES.prefix + arg1)
+            )
+
+    def _set_com_order(self, REC, LIG):
+        result = []
+        l = 0
+        r = 0
+        for i, e in enumerate(self.orderl):
+            if e in ['R', 'REC']:
+                result.append(REC[r])
+                r += 1
+            else:
+                result.append(LIG[l])
+                l += 1
+        return result
