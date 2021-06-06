@@ -390,19 +390,17 @@ def make_mutant_trajectories(INPUT, FILES, rank, cpptraj,
             shutil.copyfile(pre + f'ligand_nm_{mut_sys.info.label}.{trj_suffix}.{rank}',
                             pre + f'mutant_ligand_nm_{mut_sys.info.label}.{trj_suffix}.{rank}')
 
-        if not stability and FILES.ligand_prmtop != FILES.mutant_ligand_prmtop:
-            lig_mut = MutantMdcrd(pre + 'ligand_nm.%s.%d' % (trj_suffix, rank),
-                                  norm_sys.ligand_prmtop, mut_sys.ligand_prmtop)
-            lig_mut.MutateTraj(pre + 'mutant_ligand_nm.%s.%d' %
-                               (trj_suffix, rank))
-            shutil.copyfile(pre + 'ligand_nm.%s.%d' % (trj_suffix, rank),
-                            pre + 'mutant_ligand_nm.%s.%d' % (trj_suffix, rank))
+        if not stability and FILES.ligand_prmtop != mut_sys.info.ligand_prmtop:
+            lig_mut = MutantMdcrd(pre + f'ligand_nm_{mut_sys.info.label}.{trj_suffix}.{rank}',
+                                  norm_sys.ligand_prmtop, mut_sys.system.ligand_prmtop)
+            lig_mut.MutateTraj(pre + f'mutant_ligand_nm_{mut_sys.info.label}.{trj_suffix}.{rank}')
+            shutil.copyfile(pre + f'ligand_nm_{mut_sys.info.label}.{trj_suffix}.{rank}',
+                            pre + f'mutant_ligand_nm_{mut_sys.info.label}.{trj_suffix}.{rank}')
 
     # If we're doing a quasi-harmonic approximation we need the full com traj
     if (INPUT['full_traj'] or INPUT['qh_entropy']) and master:
-        com_mut = MutantMdcrd(pre + 'complex.%s' % trj_suffix,
-                              norm_sys.complex_prmtop, mut_sys.complex_prmtop)
-        com_mut.MutateTraj(pre + 'mutant_complex.%s' % trj_suffix)
+        com_mut = MutantMdcrd(pre + f'complex.{trj_suffix}', norm_sys.complex_prmtop, mut_sys.system.complex_prmtop)
+        com_mut.MutateTraj(pre + f'mutant_complex_{mut_sys.info.label}.{trj_suffix}')
 
     return str(com_mut), com_mut.mutres
 
