@@ -185,29 +185,31 @@ class CheckMakeTop:
                 GMXMMPBSA_ERROR('%s failed when querying %s' % (parmchk2, self.FILES.ligand_mol2))
 
         # check if the ligand force field is gaff or gaff2 and get if the ligand mol2 was defined
-        if self.INPUT['ligand_forcefield'] in ["leaprc.gaff", "leaprc.gaff2"]:
-            if not self.FILES.complex_top and not self.FILES.ligand_mol2:
-                GMXMMPBSA_WARNING('You must define the ligand mol2 file (-lm) if ligand_forcefield is "leaprc.gaff" or '
-                                  '"leaprc.gaff2". If the ligand is parametrized in Amber force fields ignore this '
-                                  'warning')
+        if (
+            self.INPUT['ligand_forcefield'] in ["leaprc.gaff", "leaprc.gaff2"]
+            and not self.FILES.complex_top
+            and not self.FILES.ligand_mol2
+        ):
+            GMXMMPBSA_WARNING('You must define the ligand mol2 file (-lm) if ligand_forcefield is "leaprc.gaff" or '
+                              '"leaprc.gaff2". If the ligand is parametrized in Amber force fields ignore this '
+                              'warning')
 
         # make a temp receptor pdb (even when stability) if decomp to get correct receptor residues from complex. This
         # avoid get multiples molecules from complex.split()
-        if self.INPUT['decomprun']:
-            if self.FILES.stability:
-                self.use_temp = True
-                logging.warning('When decomp is defined, we generate a receptor file in order to extract interface '
-                                'residues')
-                rec_echo_args = ['echo', '{}'.format(rec_group)]
-                cp1 = subprocess.Popen(rec_echo_args, stdout=subprocess.PIPE)
-                # we extract a pdb from structure file to make amber topology
-                editconf_args = self.editconf + ['-f', self.FILES.complex_tpr, '-o', 'rec_temp.pdb', '-n',
-                                            self.FILES.complex_index]
-                if self.INPUT['debug_printlevel']:
-                    logging.info('Running command: ' + (' '.join(rec_echo_args)) + ' | ' + ' '.join(editconf_args))
-                cp2 = subprocess.Popen(editconf_args, stdin=cp1.stdout, stdout=self.log, stderr=self.log)
-                if cp2.wait():  # if it quits with return code != 0
-                    GMXMMPBSA_ERROR('%s failed when querying %s' % (' '.join(self.editconf), self.FILES.complex_tpr))
+        if self.INPUT['decomprun'] and self.FILES.stability:
+            self.use_temp = True
+            logging.warning('When decomp is defined, we generate a receptor file in order to extract interface '
+                            'residues')
+            rec_echo_args = ['echo', '{}'.format(rec_group)]
+            cp1 = subprocess.Popen(rec_echo_args, stdout=subprocess.PIPE)
+            # we extract a pdb from structure file to make amber topology
+            editconf_args = self.editconf + ['-f', self.FILES.complex_tpr, '-o', 'rec_temp.pdb', '-n',
+                                        self.FILES.complex_index]
+            if self.INPUT['debug_printlevel']:
+                logging.info('Running command: ' + (' '.join(rec_echo_args)) + ' | ' + ' '.join(editconf_args))
+            cp2 = subprocess.Popen(editconf_args, stdin=cp1.stdout, stdout=self.log, stderr=self.log)
+            if cp2.wait():  # if it quits with return code != 0
+                GMXMMPBSA_ERROR('%s failed when querying %s' % (' '.join(self.editconf), self.FILES.complex_tpr))
 
         # check if stability
         if self.FILES.stability:
@@ -461,8 +463,7 @@ class CheckMakeTop:
 
         self.receptor_list = {}
         start = 1
-        c = 1
-        for r in self.resi['REC']['num']:
+        for c, r in enumerate(self.resi['REC']['num'], start=1):
             end = start + (r[1]- r[0])
             mask = f'!:{start}-{end}'
             start += end
@@ -471,12 +472,11 @@ class CheckMakeTop:
             rec_file = self.FILES.prefix + f'REC_F{c}.pdb'
             rec.save(rec_file, 'pdb', True, renumber=False)
             self.receptor_list[f'REC{c}'] = rec_file
-            c += 1
+            # c += 1
 
         self.ligand_list = {}
         start = 1
-        c = 1
-        for r in self.resi['LIG']['num']:
+        for c, r in enumerate(self.resi['LIG']['num'], start=1):
             end = start + (r[1] - r[0])
             mask = f'!:{start}-{end}'
             start += end
@@ -485,9 +485,7 @@ class CheckMakeTop:
             lig_file = self.FILES.prefix + f'LIG_F{c}.pdb'
             lig.save(lig_file, 'pdb', True, renumber=False)
             self.ligand_list[f'LIG{c}'] = lig_file
-            c += 1
-
-        self.mutants_dict = {'receptor': [], 'ligand': []}
+            # c += 1
 
         if self.INPUT['alarun']:
 
@@ -516,19 +514,20 @@ class CheckMakeTop:
                         rec = self.molstr(self.receptor_str)
                         mut_rec = self.makeMutTop(rec, part_index, True)
                         mut_rec.strip(mask)
+                        print(mut_rec.residues[part_index])
+
                         mut_rec_file = (self.FILES.prefix +
                                         f"MUT_{labels[1]}{labels[2]}_REC_F{c}.pdb")
                         mut_rec.save(mut_rec_file, 'pdb', True, renumber=False)
                         self.mutant_info[f'{labels[1]}{labels[2]}'].rec_frags.append(mut_rec_file)
                         # mut_receptor_list[f"MREC{mut_labellist[1]}{mut_labellist[2]}_{c}"] = mut_rec_file
                         c += 1
-                    self.mutants_dict['receptor'].append(self.mut_receptor_list)
+                    # self.mutant_info['mut_rec'].append(mut_receptor_list)
                 else:
-                    logging.info('Detecting mutation in Ligand.Building Mutant Ligand Structure...')
-                    self.mutant_receptor_pmrtop = None
-                    self.mut_ligand_list = {}
-                    start = 1
-                    c = 1
+                    logging.info(f'Detecting mutation ({labels[1]}{labels[2]}) in Ligand. Building '
+                                 'Mutant Ligand Structure...')
+                    # self.mutant_info['loc'].append('LIG')
+                    mut_ligand_list = {}
                     for r in self.resi['LIG']['num']:
                         end = start + (r[1] - r[0])
                         mask = f'!:{start}-{end}'
@@ -537,11 +536,11 @@ class CheckMakeTop:
                         mut_lig = self.makeMutTop(lig, part_index, True)
                         mut_lig.strip(mask)
                         mut_lig_file = (self.FILES.prefix +
-                                        f"MUT_{mut_labellist[1]}{mut_labellist[2]}_LIG_F{c}.pdb")
+                                        f"MUT_{labels[1]}{labels[2]}_LIG_F{c}.pdb")
                         mut_lig.save(mut_lig_file, 'pdb', True, renumber=False)
-                        self.mut_ligand_list[f'MLIG{mut_labellist[1]}{mut_labellist[2]}{c}'] = mut_lig_file
+                        mut_ligand_list[f'MLIG{labels[1]}{labels[2]}{c}'] = mut_lig_file
                         c += 1
-                    self.mutants_dict['ligand'].append(self.mut_ligand_list)
+                    # self.mutant_info['mut_lig'].append(mut_ligand_list)
     @staticmethod
     def cleantop(top_file, ndx):
         """
@@ -620,7 +619,7 @@ class CheckMakeTop:
                 rres = self.complex_str.residues[i - 1]
                 if [rres.chain, rres.number, rres.insertion_code] in res_selection:
                     sele_res.append(i)
-                    print(res_selection, [rres.chain, rres.number, rres.insertion_code])
+                    print(res_selection, 'sele',[rres.chain, rres.number, rres.insertion_code])
                     res_selection.remove([rres.chain, rres.number, rres.insertion_code])
             for j in self.resl['LIG']:
                 lres = self.complex_str.residues[j - 1]
@@ -632,6 +631,7 @@ class CheckMakeTop:
             for res in res_selection:
                 GMXMMPBSA_WARNING("We couldn't find this residue CHAIN:{} RES_NUM:{} ICODE: "
                                   "{}".format(*res))
+        print(sele_res)
         return sele_res
 
     def res2map(self):
@@ -761,15 +761,20 @@ class CheckMakeTop:
 
         # dict = { resind: [chain, resnum, icode]
         sele_res_dict = self.get_selected_residues(self.INPUT['mutant_res'])
+        print(sele_res_dict)
+
         info = []
         for r in sele_res_dict:
-            res = self.complex_str.residues[r]
+            res = self.complex_str.residues[r - 1]
             # label = (f"{res.name}[{res.chain}:{res.number}:{res.insertion_code}]{self.INPUT['mutant']}" if
             #          res.insertion_code else f"{res.name}[{res.chain}:{res.number}]{self.INPUT['mutant']}")
             label_list = ([res.name, res.chain, str(res.number), res.insertion_code] if res.insertion_code
                           else [res.name, res.chain, str(res.number)])
+            print(label_list, res, 'labels')
+
             if r in self.resl['REC']:
                 part_index = self.resl['REC'].index(r)
+                print(part_index, 'partindex')
                 part_mut = 'REC'
             elif r in self.resl['LIG']:
                 part_index = self.resl['LIG'].index(r)
@@ -900,6 +905,9 @@ class CheckMakeTop:
                     else:
                         GMXMMPBSA_WARNING(f"Unclassified mutant residue {mut_top.residues[mut_index].name}. The "
                                           f"default indi will be used")
+
+        print(mut_top.residues[mut_index].name, 'name')
+
         mut_top.residues[mut_index].name = mut_aa
         ind = 0
         for at in mut_top.residues[mut_index].atoms:
@@ -941,71 +949,72 @@ class CheckMakeTop:
 
     def cleanup_trajs(self):
         # clear trajectory
-        if self.INPUT['solvated_trajectory']:
-            logging.info('Cleaning normal complex trajectories...')
+        if not self.INPUT['solvated_trajectory']:
+            return
+        logging.info('Cleaning normal complex trajectories...')
+        new_trajs = []
+        for i in range(len(self.FILES.complex_trajs)):
+            trjconv_echo_args = ['echo', 'GMXMMPBSA_REC_GMXMMPBSA_LIG']
+            c5 = subprocess.Popen(trjconv_echo_args, stdout=subprocess.PIPE)
+            # we get only first trajectory to extract a pdb file and make amber topology for complex
+            trjconv_args = self.trjconv + ['-f', self.FILES.complex_trajs[0], '-s', self.FILES.complex_tpr,
+                                      '-o', 'COM_traj_{}.xtc'.format(i), '-n', self.FILES.complex_index]
+            if self.INPUT['debug_printlevel']:
+                logging.info('Running command: ' + (' '.join(trjconv_echo_args)) + ' | ' + ' '.join(trjconv_args))
+            c6 = subprocess.Popen(trjconv_args,  # FIXME: start and end frames???
+                                  stdin=c5.stdout, stdout=self.log, stderr=self.log)
+            if c6.wait():  # if it quits with return code != 0
+                GMXMMPBSA_ERROR('%s failed when querying %s' % (' '.join(self.trjconv), self.FILES.complex_tpr))
+            new_trajs.append('COM_traj_{}.xtc'.format(i))
+        self.FILES.complex_trajs = new_trajs
+
+        # clear trajectory
+        if self.FILES.receptor_tpr:
+            logging.info('Cleaning normal receptor trajectories...')
             new_trajs = []
-            for i in range(len(self.FILES.complex_trajs)):
-                trjconv_echo_args = ['echo', 'GMXMMPBSA_REC_GMXMMPBSA_LIG']
+            for i in range(len(self.FILES.receptor_trajs)):
+                trjconv_echo_args = ['echo', '{}'.format(self.FILES.receptor_group)]
                 c5 = subprocess.Popen(trjconv_echo_args, stdout=subprocess.PIPE)
                 # we get only first trajectory to extract a pdb file and make amber topology for complex
-                trjconv_args = self.trjconv + ['-f', self.FILES.complex_trajs[0], '-s', self.FILES.complex_tpr,
-                                          '-o', 'COM_traj_{}.xtc'.format(i), '-n', self.FILES.complex_index]
+                trjconv_args = self.trjconv + ['-f', self.FILES.receptor_trajs[0], '-s', self.FILES.receptor_tpr,
+                                          '-o', 'REC_traj_{}.xtc'.format(i), '-n',
+                                          self.FILES.receptor_index]
                 if self.INPUT['debug_printlevel']:
-                    logging.info('Running command: ' + (' '.join(trjconv_echo_args)) + ' | ' + ' '.join(trjconv_args))
+                    logging.info('Running command: ' + (' '.join(trjconv_echo_args)) + ' | ' + ' '.join(
+                        trjconv_args))
                 c6 = subprocess.Popen(trjconv_args,  # FIXME: start and end frames???
                                       stdin=c5.stdout, stdout=self.log, stderr=self.log)
                 if c6.wait():  # if it quits with return code != 0
-                    GMXMMPBSA_ERROR('%s failed when querying %s' % (' '.join(self.trjconv), self.FILES.complex_tpr))
-                new_trajs.append('COM_traj_{}.xtc'.format(i))
-            self.FILES.complex_trajs = new_trajs
+                    GMXMMPBSA_ERROR(
+                        '%s failed when querying %s' % (' '.join(self.trjconv), self.FILES.receptor_tpr))
+                new_trajs.append('REC_traj_{}.xtc'.format(i))
+            self.FILES.receptor_trajs = new_trajs
 
-            # clear trajectory
-            if self.FILES.receptor_tpr:
-                logging.info('Cleaning normal receptor trajectories...')
-                new_trajs = []
-                for i in range(len(self.FILES.receptor_trajs)):
-                    trjconv_echo_args = ['echo', '{}'.format(self.FILES.receptor_group)]
-                    c5 = subprocess.Popen(trjconv_echo_args, stdout=subprocess.PIPE)
-                    # we get only first trajectory to extract a pdb file and make amber topology for complex
-                    trjconv_args = self.trjconv + ['-f', self.FILES.receptor_trajs[0], '-s', self.FILES.receptor_tpr,
-                                              '-o', 'REC_traj_{}.xtc'.format(i), '-n',
-                                              self.FILES.receptor_index]
-                    if self.INPUT['debug_printlevel']:
-                        logging.info('Running command: ' + (' '.join(trjconv_echo_args)) + ' | ' + ' '.join(
-                            trjconv_args))
-                    c6 = subprocess.Popen(trjconv_args,  # FIXME: start and end frames???
-                                          stdin=c5.stdout, stdout=self.log, stderr=self.log)
-                    if c6.wait():  # if it quits with return code != 0
-                        GMXMMPBSA_ERROR(
-                            '%s failed when querying %s' % (' '.join(self.trjconv), self.FILES.receptor_tpr))
-                    new_trajs.append('REC_traj_{}.xtc'.format(i))
-                self.FILES.receptor_trajs = new_trajs
-
-            if self.FILES.ligand_tpr:
-                logging.info('Cleanig normal ligand trajectories...')
-                new_trajs = []
-                for i in range(len(self.FILES.ligand_trajs)):
-                    trjconv_echo_args = ['echo', '{}'.format(self.FILES.ligand_group)]
-                    c5 = subprocess.Popen(trjconv_echo_args, stdout=subprocess.PIPE)
-                    # we get only first trajectory to extract a pdb file and make amber topology for complex
-                    trjconv_args = self.trjconv + ['-f', self.FILES.ligand_trajs[0], '-s', self.FILES.ligand_tpr,
-                                              '-o', 'LIG_traj_{}.xtc'.format(i), '-n', self.FILES.ligand_index]
-                    if self.INPUT['debug_printlevel']:
-                        logging.info(
-                            'Running command: ' + (' '.join(trjconv_echo_args)) + ' | ' + ' '.join(trjconv_args))
-                    c6 = subprocess.Popen(trjconv_args, stdin=c5.stdout, stdout=self.log, stderr=self.log)
-                    if c6.wait():  # if it quits with return code != 0
-                        GMXMMPBSA_ERROR('%s failed when querying %s' % (' '.join(self.trjconv), self.FILES.ligand_tpr))
-                    new_trajs.append('LIG_traj_{}.xtc'.format(i))
-                self.FILES.ligand_trajs = new_trajs
+        if self.FILES.ligand_tpr:
+            logging.info('Cleanig normal ligand trajectories...')
+            new_trajs = []
+            for i in range(len(self.FILES.ligand_trajs)):
+                trjconv_echo_args = ['echo', '{}'.format(self.FILES.ligand_group)]
+                c5 = subprocess.Popen(trjconv_echo_args, stdout=subprocess.PIPE)
+                # we get only first trajectory to extract a pdb file and make amber topology for complex
+                trjconv_args = self.trjconv + ['-f', self.FILES.ligand_trajs[0], '-s', self.FILES.ligand_tpr,
+                                          '-o', 'LIG_traj_{}.xtc'.format(i), '-n', self.FILES.ligand_index]
+                if self.INPUT['debug_printlevel']:
+                    logging.info(
+                        'Running command: ' + (' '.join(trjconv_echo_args)) + ' | ' + ' '.join(trjconv_args))
+                c6 = subprocess.Popen(trjconv_args, stdin=c5.stdout, stdout=self.log, stderr=self.log)
+                if c6.wait():  # if it quits with return code != 0
+                    GMXMMPBSA_ERROR('%s failed when querying %s' % (' '.join(self.trjconv), self.FILES.ligand_tpr))
+                new_trajs.append('LIG_traj_{}.xtc'.format(i))
+            self.FILES.ligand_trajs = new_trajs
 
     def fix_chains_IDs(self, com_str, rec_str=None, lig_str=None, ref_str=None):
         if ref_str:
             if len(ref_str.residues) != len(com_str.residues):
                 GMXMMPBSA_ERROR('The number of amino acids in the reference structure is different from that of the '
                                 'complex...')
-            c = 1
-            for res in ref_str.residues:
+            for c, res in enumerate(ref_str.residues, start=1):
+                # TODO: check if the residues are the same
                 com_str.residues[c-1].chain = res.chain
                 if c in self.resl['REC']:
                     i = self.resl['REC'].index(c)
@@ -1013,7 +1022,6 @@ class CheckMakeTop:
                 else:
                     i = self.resl['LIG'].index(c)
                     lig_str.residues[i].chain = res.chain
-                c += 1
         else:
             assign = False
             if self.INPUT['assign_chainID'] == 1:
@@ -1024,95 +1032,94 @@ class CheckMakeTop:
                     logging.info('Chains ID found. Ignoring chains ID assignation...')
             elif self.INPUT['assign_chainID'] == 2:
                 assign = True
-                if not com_str.residues[0].chain:
-                    logging.warning('Already have chain ID. Re-assigning ID...')
-                else:
+                if com_str.residues[0].chain:
                     logging.warning('Assigning chains ID...')
+                else:
+                    logging.warning('Already have chain ID. Re-assigning ID...')
             elif self.INPUT['assign_chainID'] == 0 and self.FILES.complex_tpr[-3:] == 'gro':
                 assign = True
                 logging.warning('No reference structure was found and a gro file was used for the complex '
                                 'structure. Assigning chains ID...')
 
             if assign:
-                chains_ids = []
-                chain_by_num = False
-                chain_by_ter = False
-                previous_res_number = 0
-                curr_chain_id = 'A'
-                has_nucl = 0
-                c = 1
-                for res in com_str.residues:
-                    if not res.chain:
-                        res.chain = curr_chain_id
-
-                        if c in self.resl['REC']:
-                            i = self.resl['REC'].index(c)
-                            rec_str.residues[i].chain = res.chain
-                        else:
-                            i = self.resl['LIG'].index(c)
-                            lig_str.residues[i].chain = res.chain
-                        if curr_chain_id not in chains_ids:
-                            chains_ids.append(curr_chain_id)
-                    else:
-                        if res.chain != curr_chain_id:
-                            res.chain = curr_chain_id
-                            if c in self.resl['REC']:
-                                i = self.resl['REC'].index(c)
-                                rec_str.residues[i].chain = res.chain
-                            else:
-                                i = self.resl['LIG'].index(c)
-                                lig_str.residues[i].chain = res.chain
-                        if res.chain not in chains_ids:
-                            chains_ids.append(res.chain)
-                    # see if it is the end of chain
-                    if res.number != previous_res_number + 1:
-                        if previous_res_number != 0:
-                            chain_by_num = True
-                    if chain_by_num and chain_by_ter:
-                        chain_by_num = False
-                        chain_by_ter = False
-                        curr_chain_id = chains_letters[chains_letters.index(chains_ids[-1]) + 1]
-                        res.chain = curr_chain_id
-                        if c in self.resl['REC']:
-                            i = self.resl['REC'].index(c)
-                            rec_str.residues[i].chain = res.chain
-                        else:
-                            i = self.resl['LIG'].index(c)
-                            lig_str.residues[i].chain = res.chain
-                        if res.chain not in chains_ids:
-                            chains_ids.append(res.chain)
-                    elif chain_by_ter:
-                        chain_by_ter = False
-                    elif chain_by_num:
-                        chain_by_num = False
-                        curr_chain_id = chains_letters[chains_letters.index(chains_ids[-1]) + 1]
-                        res.chain = curr_chain_id
-
-                        if c + 1 in self.resl['REC']:
-                            i = self.resl['REC'].index(c)
-                            rec_str.residues[i].chain = res.chain
-                        else:
-                            i = self.resl['LIG'].index(c)
-                            lig_str.residues[i].chain = res.chain
-                        if res.chain not in chains_ids:
-                            chains_ids.append(res.chain)
-                    for atm in res.atoms:
-                        if atm.name == 'OXT':  # only for protein
-                            res.ter = True
-                            chain_by_ter = True
-                    if parmed.residue.RNAResidue.has(res.name) or parmed.residue.DNAResidue.has(res.name):
-                        has_nucl += 1
-
-                    previous_res_number = res.number
-                    c += 1
-                if has_nucl == 1:
-                    logging.warning('This structure contains nucleotides. We recommend that you use the reference '
-                                    'structure')
-
+                self._assign_chains_IDs(com_str, rec_str, lig_str)
         # Save fixed complex structure for analysis and set it in FILES to save in info file
         com_str.save(self.FILES.prefix + 'COM_FIXED.pdb', 'pdb', True, renumber=False)
 
-    def molstr(self, data):
+    def _assign_chains_IDs(self, com_str, rec_str, lig_str):
+        chains_ids = []
+        chain_by_num = False
+        chain_by_ter = False
+        previous_res_number = 0
+        curr_chain_id = 'A'
+        has_nucl = 0
+        for c, res in enumerate(com_str.residues, start=1):
+            if res.chain:
+                if res.chain != curr_chain_id:
+                    res.chain = curr_chain_id
+                    if c in self.resl['REC']:
+                        i = self.resl['REC'].index(c)
+                        rec_str.residues[i].chain = res.chain
+                    else:
+                        i = self.resl['LIG'].index(c)
+                        lig_str.residues[i].chain = res.chain
+                if res.chain not in chains_ids:
+                    chains_ids.append(res.chain)
+            else:
+                res.chain = curr_chain_id
+
+                if c in self.resl['REC']:
+                    i = self.resl['REC'].index(c)
+                    rec_str.residues[i].chain = res.chain
+                else:
+                    i = self.resl['LIG'].index(c)
+                    lig_str.residues[i].chain = res.chain
+                if curr_chain_id not in chains_ids:
+                    chains_ids.append(curr_chain_id)
+                    # see if it is the end of chain
+            if res.number != previous_res_number + 1 and previous_res_number != 0:
+                chain_by_num = True
+            if chain_by_num and chain_by_ter:
+                chain_by_num = False
+                chain_by_ter = False
+                curr_chain_id = chains_letters[chains_letters.index(chains_ids[-1]) + 1]
+                res.chain = curr_chain_id
+                if c in self.resl['REC']:
+                    i = self.resl['REC'].index(c)
+                    rec_str.residues[i].chain = res.chain
+                else:
+                    i = self.resl['LIG'].index(c)
+                    lig_str.residues[i].chain = res.chain
+                if res.chain not in chains_ids:
+                    chains_ids.append(res.chain)
+            elif chain_by_ter:
+                chain_by_ter = False
+            elif chain_by_num:
+                chain_by_num = False
+                curr_chain_id = chains_letters[chains_letters.index(chains_ids[-1]) + 1]
+                res.chain = curr_chain_id
+
+                if c + 1 in self.resl['REC']:
+                    i = self.resl['REC'].index(c)
+                    rec_str.residues[i].chain = res.chain
+                else:
+                    i = self.resl['LIG'].index(c)
+                    lig_str.residues[i].chain = res.chain
+                if res.chain not in chains_ids:
+                    chains_ids.append(res.chain)
+            for atm in res.atoms:
+                if atm.name == 'OXT':  # only for protein
+                    res.ter = True
+                    chain_by_ter = True
+            if parmed.residue.RNAResidue.has(res.name) or parmed.residue.DNAResidue.has(res.name):
+                has_nucl += 1
+
+            previous_res_number = res.number
+        if has_nucl == 1:
+            logging.warning('This structure contains nucleotides. We recommend that you use the reference '
+                            'structure')
+    @staticmethod
+    def molstr(data):
 
         if type(data) == str:
             # data is a pdb file
@@ -1179,24 +1186,12 @@ class CheckMakeTop:
                     tif.write(f'LIG_OUT = combine {{ {lig_out} }}\n')
                     tif.write('saveamberparm LIG_OUT {t} {p}LIG.inpcrd\n'.format(t=self.ligand_pmrtop,
                                                                                  p=self.FILES.prefix))
-            COM = []
-            l = 0
-            r = 0
-            i = 0
-            for e in self.orderl:
-                if e in ['R', 'REC']:
-                    COM.append(REC[r])
-                    r += 1
-                else:
-                    COM.append(LIG[l])
-                    l += 1
-                i += 1
-
-            if not self.FILES.stability:
+            COM = self._set_com_order(REC, LIG)
+            if self.FILES.stability:
+                self.receptor_pmrtop = None
+            else:
                 tif.write(f'REC_OUT = combine {{ { rec_out } }}\n')
                 tif.write('saveamberparm REC_OUT {t} {p}REC.inpcrd\n'.format(t=self.receptor_pmrtop, p=self.FILES.prefix))
-            else:
-                self.receptor_pmrtop = None
             com_out = ' '.join(COM)
             tif.write(f'COM_OUT = combine {{ {com_out} }}\n')
             tif.write('saveamberparm COM_OUT {t} {p}COM.inpcrd\n'.format(t=self.complex_pmrtop, p=self.FILES.prefix))
@@ -1204,17 +1199,12 @@ class CheckMakeTop:
         # changed in v1.4.3. We source the gmxMMPBSA ff directly from the data folder instead of copy to the Amber/dat
         data_path = Path(__file__).parent.joinpath('data')
         tleap = self.external_progs['tleap']
-        tleap_args = [tleap, '-f', '{}'.format(self.FILES.prefix + 'leap.in'), '-I', data_path.as_posix()]
-        if self.INPUT['debug_printlevel']:
-            logging.info('Running command: ' + ' '.join(tleap_args))
-        p = subprocess.Popen(tleap_args, stdout=self.log, stderr=self.log)
-        if p.wait():
-            GMXMMPBSA_ERROR('%s failed when querying %s' % (tleap, self.FILES.prefix + 'leap.in'))
-
+        self._run_tleap(tleap, 'leap.in', data_path)
         if self.INPUT['alarun']:
             with open(self.FILES.prefix + 'mut_leap.in', 'w') as mtif:
                 self._write_ff(mtif)
 
+                print(self.mutant_info)
 
                 for c, mut in enumerate(self.mutant_info):
                     if self.mutant_info[mut].loc == 'REC':
@@ -1255,14 +1245,14 @@ class CheckMakeTop:
                             mtif.write(f'{mlig} = loadpdb {self.mut_ligand_list[mlig]}\n')
                         mlig_out = ' '.join(LIG)
 
-                    if not self.FILES.stability:
-                        mtif.write(f'MLIG_OUT = combine {{ {mlig_out} }}\n')
-                        mtif.write('saveamberparm MLIG_OUT {t} {p}MUT_LIG.inpcrd\n'.format(
-                                t=self.mutant_ligand_pmrtop, p=self.FILES.prefix))
-                    else:
-                        self.mutant_ligand_pmrtop = None
-                    for rec in self.receptor_list:
-                        mtif.write(f'{rec} = loadpdb {self.receptor_list[rec]}\n')
+                        if self.FILES.stability:
+                            self.mutant_ligand_pmrtop = None
+                        else:
+                            mtif.write(f'MLIG_OUT = combine {{ {mlig_out} }}\n')
+                            mtif.write('saveamberparm MLIG_OUT {t} {p}MUT_LIG.inpcrd\n'.format(
+                                    t=self.mutant_ligand_pmrtop, p=self.FILES.prefix))
+                        for rec in self.receptor_list:
+                            mtif.write(f'{rec} = loadpdb {self.receptor_list[rec]}\n')
 
                     MCOM = self._set_com_order(REC, LIG)
                     mcom_out = ' '.join(MCOM)
