@@ -147,7 +147,7 @@ class Calculation(object):
             for i in range(len(self.command_args)):
                 self.command_args[i] = str(self.command_args[i])
                 if '%d' in self.command_args[i]:
-                    self.command_args[i] = self.command_args[i] % rank
+                    self.command_args[i] %= rank
 
             process = Popen(self.command_args, stdin=None, stdout=process_stdout,
                             stderr=process_stderr)
@@ -155,8 +155,7 @@ class Calculation(object):
             calc_failed = bool(process.wait())
 
             if calc_failed:
-                raise CalcError('%s failed with prmtop %s!' % (self.program,
-                                                               self.prmtop))
+                raise CalcError('%s failed with prmtop %s!' % (self.program, self.prmtop))
         finally:
             if own_handleo: process_stdout.close()
             if own_handlee: process_stdout.close()
@@ -525,16 +524,10 @@ class CopyCalc(Calculation):
     def run(self, rank, stdout=None, stderr=None):
         from shutil import copy
         # Do rank-substitution if necessary
-        if '%d' in self.orig_name:
-            orig_name = self.orig_name % rank
-        else:
-            orig_name = self.orig_name
+        orig_name = self.orig_name % rank if '%d' in self.orig_name else self.orig_name
+        final_name = self.final_name % rank if '%d' in self.final_name else self.final_name
 
-        if '%d' in self.final_name:
-            final_name = self.final_name % rank
-        else:
-            final_name = self.final_name
-
+        print(orig_name, final_name, 'orig_name, final_name, ')
         copy(orig_name, final_name)
 
 #+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
