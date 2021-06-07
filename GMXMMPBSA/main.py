@@ -235,12 +235,9 @@ class MMPBSA_App(object):
                 timer_key=None)
             self._load_calc_list(self.pre, None, self.normal_system)
         if self.INPUT['alarun']:
-            # self.calc_list.append(
-            #     PrintCalc('\nRunning calculations on mutant system...'),
-            #     timer_key=None)
-
             for mut_sys in self.mutant_system:
-                self.calc_list.append(PrintCalc(f'\nRunning calculations on mutant ({mut_sys}) system...'), timer_key=None)
+                self.calc_list.append(PrintCalc(f'\nRunning calculations on mutant ({mut_sys}) system...'),
+                                  timer_key=None)
                 self._load_calc_list(self.pre + 'mutant_', True, self.mutant_system[mut_sys])
 
     def _load_calc_list(self, prefix, mutant, parm_system):
@@ -685,6 +682,8 @@ class MMPBSA_App(object):
                                                                   self.mutant_info[mut_sys].complex_prmtop,
                                                                   self.mutant_info[mut_sys].receptor_prmtop,
                                                                   self.mutant_info[mut_sys].ligand_prmtop))
+            # Set mutant_system available for all mpi ranks since we need iterate over all mutant in all ranks
+            self.mutant_system = self.MPI.COMM_WORLD.bcast(self.mutant_system, root=0)
         # If we have a chamber prmtop, force using sander
         if self.using_chamber:
             INPUT['use_sander'] = True
@@ -697,10 +696,9 @@ class MMPBSA_App(object):
         self.normal_system.Map(INPUT['receptor_mask'], INPUT['ligand_mask'])
         self.normal_system.CheckConsistency()
         if INPUT['alarun']:
-            [self.mutant_system[mut_sys].system.Map(INPUT['receptor_mask'], INPUT['ligand_mask']) for mut_sys in
-             self.mutant_system]
-            [self.mutant_system[mut_sys].system.CheckConsistency() for mut_sys in self.mutant_system]
-            # self.mutant_system.CheckConsistency()
+            for mut_sys in self.mutant_system:
+                self.mutant_system[mut_sys].system.Map(INPUT['receptor_mask'], INPUT['ligand_mask'])
+                self.mutant_system[mut_sys].system.CheckConsistency()
         if (INPUT['ligand_mask'] is None or INPUT['receptor_mask'] is None):
             com_mask, INPUT['receptor_mask'], INPUT['ligand_mask'] = \
                 self.normal_system.Mask('all', in_complex=True)
