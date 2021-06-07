@@ -1059,7 +1059,7 @@ class MMPBSA_App(object):
         # Only the master does this
         if not self.master:
             return
-        self.calc_types = {}
+        self.calc_types = type('calc_type_dict', (dict,), {'mutants': {}})()
 
         # compatibility issues with the new and deprecated variables
         if self.INPUT['entropy']:
@@ -1083,13 +1083,15 @@ class MMPBSA_App(object):
         INPUT, FILES = self.INPUT, self.FILES
         # Mutant will also be a dict
         if INPUT['alarun']:
-            self.calc_types['mutant'] = {}
+            for mut_sys in self.mutant_info:
+                self.calc_types.mutants[mut_sys] = {}
         # Quasi-harmonic analysis is a special-case, so handle that separately
         if INPUT['qh_entropy']:
             if not INPUT['mutant_only']:
                 self.calc_types['qh'] = QHout(self.pre + 'cpptraj_entropy.out', INPUT['temp'])
             if INPUT['alarun']:
-                self.calc_types['mutant']['qh'] = QHout(self.pre + 'mutant_cpptraj_entropy.out', INPUT['temp'])
+                for mut_sys in self.mutant_info:
+                    self.calc_types.mutants[mut_sys]['qh'] = QHout(self.pre + 'mutant_cpptraj_entropy.out', INPUT['temp'])
         # Set BindingClass based on whether it's a single or multiple trajectory
         # analysis
         if self.traj_protocol == 'STP':
@@ -1113,8 +1115,8 @@ class MMPBSA_App(object):
         triggers = ('nmoderun', 'gbrun', 'pbrun', 'rismrun_std', 'rismrun_gf')
         outclass = (NMODEout, GBClass, PBout, RISM_Std, RISM_GF)
         outkey = ('nmode', 'gb', 'pb', 'rism std', 'rism gf')
-        basename = ('%s_nm.out', '%s_gb.mdout', '%s_pb.mdout', '%s_rism.mdout',
-                    '%s_rism.mdout')
+        basename = ('%s_nm.out', '%s_gb.mdout', '%s_pb.mdout', '%s_rism.mdout', '%s_rism.mdout')
+        basename_mut = ('%s_nm_%s.out', '%s_gb_%s.mdout', '%s_pb_%s.mdout', '%s_rism_%s.mdout', '%s_rism_%s.mdout')
         for i, key in enumerate(outkey):
             if not INPUT[triggers[i]]:
                 continue
@@ -1145,28 +1147,33 @@ class MMPBSA_App(object):
                     self.calc_types[key]['complex'].fill_composite_terms()
             # Time for mutant
             if INPUT['alarun']:
-                self.calc_types['mutant'][key] = {'complex':
-                                                      outclass[i](self.pre + 'mutant_' + basename[i] % 'complex',
-                                                                  self.INPUT, self.mpi_size, self.using_chamber)}
-                if not self.stability:
-                    self.calc_types['mutant'][key]['receptor'] = outclass[i](
-                        self.pre + 'mutant_' + basename[i] % 'receptor',
-                        self.INPUT, self.mpi_size, self.using_chamber)
-                    self.calc_types['mutant'][key]['ligand'] = outclass[i](
-                        self.pre + 'mutant_' + basename[i] % 'ligand',
-                        self.INPUT, self.mpi_size, self.using_chamber)
-                    self.calc_types['mutant'][key]['delta'] = BindClass(
-                        self.calc_types['mutant'][key]['complex'],
-                        self.calc_types['mutant'][key]['receptor'],
-                        self.calc_types['mutant'][key]['ligand'],
-                        self.INPUT['verbose'], self.using_chamber)
-                    if (self.INPUT['interaction_entropy'] and key not in ['nmode', 'qh'] and
-                            'ie' not in self.calc_types['mutant']):
-                        edata = self.calc_types['mutant'][key]['delta'].data['DELTA G gas']
-                        mie = InteractionEntropyCalc(edata, self, self.pre + 'mutant_iteraction_entropy.dat')
-                        self.calc_types['mutant']['ie'] = IEout(mie.data, mie.iedata, mie.frames, mie.ieframes)
-                else:
-                    self.calc_types['mutant'][key]['complex'].fill_composite_terms()
+                for mut_sys in self.mutant_info:
+
+                    print(self.pre + 'mutant_' + basename_mut[i] % ('complex', mut_sys), self.INPUT,
+                                      self.mpi_size, self.using_chamber)
+                    self.calc_types.mutants[mut_sys][key] = {'complex': outclass[i](self.pre + 'mutant_' +
+                                                                                    basename_mut[i] % ('complex', mut_sys),
+                                                                                    self.INPUT, self.mpi_size,
+                                                                                    self.using_chamber)}
+                    if not self.stability:
+                        self.calc_types.mutants[mut_sys][key]['receptor'] = outclass[i](
+                            self.pre + 'mutant_' + basename_mut[i] % ('receptor', mut_sys),
+                            self.INPUT, self.mpi_size, self.using_chamber)
+                        self.calc_types.mutants[mut_sys][key]['ligand'] = outclass[i](
+                            self.pre + 'mutant_' + basename_mut[i] % ('ligand', mut_sys),
+                            self.INPUT, self.mpi_size, self.using_chamber)
+                        self.calc_types.mutants[mut_sys][key]['delta'] = BindClass(
+                            self.calc_types.mutants[mut_sys][key]['complex'],
+                            self.calc_types.mutants[mut_sys][key]['receptor'],
+                            self.calc_types.mutants[mut_sys][key]['ligand'],
+                            self.INPUT['verbose'], self.using_chamber)
+                        if (self.INPUT['interaction_entropy'] and key not in ['nmode', 'qh'] and
+                                'ie' not in self.calc_types.mutants[mut_sys]):
+                            edata = self.calc_types.mutants[mut_sys][key]['delta'].data['DELTA G gas']
+                            mie = InteractionEntropyCalc(edata, self, self.pre + 'mutant_iteraction_entropy.dat')
+                            self.calc_types.mutants[mut_sys]['ie'] = IEout(mie.data, mie.iedata, mie.frames, mie.ieframes)
+                    else:
+                        self.calc_types.mutants[mut_sys][key]['complex'].fill_composite_terms()
 
 
 # Local methods
