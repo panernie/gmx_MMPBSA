@@ -37,7 +37,6 @@ def write_stability_output(app):
     # Load some objects into top-level name space
     FILES = app.FILES
     INPUT = app.INPUT
-    mut_str = app.mut_str
 
     if FILES.energyout:
         ene_csv = open(FILES.energyout, 'w')
@@ -49,11 +48,9 @@ def write_stability_output(app):
     final_output.write(app.input_file_text)
     final_output.print_file_info(FILES, INPUT)
     final_output.add_comment('')
-    final_output.add_comment('Calculations performed using %s complex frames.' %
-                             app.numframes)
+    final_output.add_comment('Calculations performed using %s complex frames.' % app.numframes)
     if INPUT['nmoderun']:
-        final_output.add_comment('NMODE calculations performed using %s frames.' %
-                                 app.numframes_nmode)
+        final_output.add_comment('NMODE calculations performed using %s frames.' % app.numframes_nmode)
 
     if INPUT['pbrun']:
         if INPUT['sander_apbs']:
@@ -260,19 +257,15 @@ def write_binding_output(app):
     final_output.write(app.input_file_text)
     final_output.print_file_info(FILES, INPUT)
     final_output.add_comment('')
-    final_output.add_comment('Receptor mask:                  "%s"' %
-                             INPUT['receptor_mask'])
-    final_output.add_comment('Ligand mask:                    "%s"' %
-                             INPUT['ligand_mask'])
+    final_output.add_comment('Receptor mask:                  "%s"' % INPUT['receptor_mask'])
+    final_output.add_comment('Ligand mask:                    "%s"' % INPUT['ligand_mask'])
     if prmtop_system.ligand_prmtop.ptr('nres') == 1:
         final_output.add_comment('Ligand residue name is "%s"' %
                                  prmtop_system.ligand_prmtop.parm_data['RESIDUE_LABEL'][0])
     final_output.add_comment('')
-    final_output.add_comment('Calculations performed using %s complex frames.' %
-                             app.numframes)
+    final_output.add_comment('Calculations performed using %s complex frames.' % app.numframes)
     if INPUT['nmoderun']:
-        final_output.add_comment('NMODE calculations performed using %s frames.' %
-                                 app.numframes_nmode)
+        final_output.add_comment('NMODE calculations performed using %s frames.' % app.numframes_nmode)
     if INPUT['interaction_entropy']:
         final_output.add_comment('Interaction Entropy calculations performed using last %s frames.' %
                                  ceil(app.numframes * (INPUT['ie_segment']/100)))
@@ -476,10 +469,7 @@ def write_decomp_stability_output(FILES, INPUT, size, prmtop_system,
     from datetime import datetime
     from GMXMMPBSA.amber_outputs import DecompOut, PairDecompOut, idecompString
 
-    if INPUT['idecomp'] in [1, 2]:
-        DecompClass = DecompOut
-    else:
-        DecompClass = PairDecompOut
+    DecompClass = DecompOut if INPUT['idecomp'] in [1, 2] else PairDecompOut
 
     # Open up the files
     if INPUT['csv_format']:
@@ -880,23 +870,19 @@ class OutputFile(object):
 
     def write(self, stuff):
         # Handle bytes/str division in Py3 transparently
-        if self._binary:
-            if isinstance(stuff, str):
-                self._handle.write(stuff.encode())
-            else:
-                self._handle.write(stuff)
+        if self._binary and isinstance(stuff, str):
+            self._handle.write(stuff.encode())
+        elif self._binary or isinstance(stuff, str):
+            self._handle.write(stuff)
         else:
-            if isinstance(stuff, str):
-                self._handle.write(stuff)
-            else:
-                self._handle.write(stuff.decode())
+            self._handle.write(stuff.decode())
         self._handle.flush()
 
     # ==================================================
 
     def separate(self):
         """ Delimiter between fields in output file """
-        for i in range(2):
+        for _ in range(2):
             self.write('-' * 79)
             self.write(ls)
 
@@ -926,23 +912,20 @@ class OutputFile(object):
         # if FILES.solvated_prmtop:
         #    self.writeline('|Solvated complex topology file:  %s' %
         #               FILES.solvated_prmtop)
-        self.writeline('|Complex topology file:           %s' %
-                       FILES.complex_prmtop)
+        self.writeline('|Complex topology file:           %s' % FILES.complex_prmtop)
 
         if not stability:
             # if FILES.receptor_trajs:
             #    if FILES.solvated_receptor_prmtop:
             #       self.writeline('|Solvated receptor topology file: %s' %
             #                  FILES.solvated_receptor_prmtop)
-            self.writeline('|Receptor topology file:          %s' %
-                           FILES.receptor_prmtop)
+            self.writeline('|Receptor topology file:          %s' % FILES.receptor_prmtop)
 
             # if FILES.ligand_trajs:
             # if FILES.solvated_ligand_prmtop:
             #    self.writeline('|Solvated ligand topology file:   %s' %
             #               FILES.solvated_ligand_prmtop)
-            self.writeline('|Ligand topology file:            %s' %
-                           FILES.ligand_prmtop)
+            self.writeline('|Ligand topology file:            %s' % FILES.ligand_prmtop)
 
         if INPUT['alarun']:
             self.writeline('|Mutant complex topology file:    %s' %
