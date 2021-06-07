@@ -421,15 +421,17 @@ class IEout(object):
         for f, d in zip(self.data['frames'], self.data['data']):
             csvwriter.writerow([f] + [d])
 
-    def print_summary(self):
-        """ Formatted summary of quasi-harmonic results """
-        ret_str = f"Iteration Entropy calculation from last {self.data['ieframes']} frames...\n"
-        ret_str += 'Iteration Entropy: {:.2f}\n'.format(self.avg())
-
-        ret_str = 'Entropy Term                Average              Std. Dev.   Std. Err. of Mean\n'
-        ret_str += '-------------------------------------------------------------------------------\n'
+    def print_summary(self, system='Normal', header=True):
+        """ Formatted summary of interaction results """
+        # ret_str = f"Iteration Entropy calculation from last {self.data['ieframes']} frames...\n"
+        # ret_str += 'Iteration Entropy: {:.2f}\n'.format(self.avg())
         stdev = self.data['iedata'].stdev()
-        ret_str += '%-14s %20.4f %21.4f %19.4f\n' % ('IE', self.data['iedata'].avg(), stdev,
+
+        ret_str = ''
+        if header:
+            ret_str += 'System                      Average              Std. Dev.   Std. Err. of Mean\n'
+            ret_str += '-------------------------------------------------------------------------------\n'
+        ret_str += '%-14s %20.4f %21.4f %19.4f\n' % (system, self.data['iedata'].avg(), stdev,
                                                      stdev/sqrt(len(self.data['iedata'])))
         return ret_str
 
@@ -474,19 +476,15 @@ class QHout(object):
         ret_str =  ('           Translational      Rotational      ' +
                     'Vibrational           Total\n')
 
-        ret_str += 'Complex:   %13.4f %15.4f %16.4f %15.4f\n' % (self.com[1],
-                                                                 self.com[2], self.com[3], self.com[0])
+        ret_str += 'Complex:   %13.4f %15.4f %16.4f %15.4f\n' % (self.com[1], self.com[2], self.com[3], self.com[0])
 
         if not self.stability:
-            ret_str += 'Receptor:  %13.4f %15.4f %16.4f %15.4f\n' % (self.rec[1],
-                                                                     self.rec[2], self.rec[3], self.rec[0])
-            ret_str += 'Ligand:    %13.4f %15.4f %16.4f %15.4f\n' % (self.lig[1],
-                                                                     self.lig[2], self.lig[3], self.lig[0])
-            ret_str += '\nDELTA S (TΔS):   %13.4f %15.4f %16.4f %15.4f\n' % (
-                self.com[1] - self.rec[1] - self.lig[1],
-                self.com[2] - self.rec[2] - self.lig[2],
-                self.com[3] - self.rec[3] - self.lig[3],
-                self.com[0] - self.rec[0] - self.lig[0] )
+            ret_str += 'Receptor:  %13.4f %15.4f %16.4f %15.4f\n' % (self.rec[1], self.rec[2], self.rec[3], self.rec[0])
+            ret_str += 'Ligand:    %13.4f %15.4f %16.4f %15.4f\n' % (self.lig[1], self.lig[2], self.lig[3], self.lig[0])
+            ret_str += '\nDELTA S (TΔS):   %13.4f %15.4f %16.4f %15.4f\n' % (self.com[1] - self.rec[1] - self.lig[1],
+                                                                             self.com[2] - self.rec[2] - self.lig[2],
+                                                                             self.com[3] - self.rec[3] - self.lig[3],
+                                                                             self.com[0] - self.rec[0] - self.lig[0] )
 
         return ret_str
 
@@ -737,7 +735,9 @@ class GBout(AmberOutput):
     def _extra_reading(self, fileno):
         # Load the ESURF data from the cpptraj output
         fname = '%s.%d' % (self.basename, fileno)
-        fname = fname.replace('gb.mdout','gb_surf.dat')
+        fname = fname.replace('gb','gb_surf')
+        fname = fname.replace('mdout','dat')
+
         surf_data = _get_cpptraj_surf(fname)
         self.data['ESURF'].extend((surf_data * self.surften) + self.surfoff)
 
