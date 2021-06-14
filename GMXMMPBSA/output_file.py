@@ -378,11 +378,6 @@ def write_binding_output(app):
                 text += '(%s) DELTA DELTA S binding = %9.4f +/- %9.4f\n' % (mut_sys, davg, dstdev)
             final_output.add_section(text)
 
-            # davg, dstdev = ienorm.diff(iemutant, 'iedata', 'iedata')
-            # final_output.add_section(('\nRESULT OF ALANINE SCANNING:\n'
-            #                           '(%s) DELTA DELTA S binding = %9.4f +/- %9.4f\n') % (mut_sys, davg, dstdev))
-
-
     # Now print out the normal mode results
     if INPUT['nmoderun']:
         mut_nmode = {}
@@ -545,20 +540,19 @@ def write_decomp_stability_output(FILES, INPUT, size, prmtop_system,
         decompout = writer(dec_out_file)
         decompout.writerow(['| Run on %s' % datetime.now().ctime()])
         if INPUT['gbrun']:
-            decompout.writerow(['| GB non-polar solvation energies calculated '
-                                'with gbsa=2'])
+            decompout.writerow(['| GB non-polar solvation energies calculated with gbsa=2'])
         decompout.writerow([idecompString[INPUT['idecomp']]])
     else:
         dec_out_file = OutputFile(FILES.decompout, 'w', 0)
         decompout = dec_out_file
         decompout.write_date()
         if INPUT['gbrun']:
-            decompout.add_comment('| GB non-polar solvation energies calculated '
-                                  'with gbsa=2')
+            decompout.add_comment('| GB non-polar solvation energies calculated with gbsa=2')
         decompout.writeline(idecompString[INPUT['idecomp']])
 
     # Open up the energyvector CSV file
-    if FILES.dec_energies: dec_energies = open(FILES.dec_energies, 'w')
+    if FILES.dec_energies:
+        dec_energies = open(FILES.dec_energies, 'w')
 
     # GB first
     if INPUT['gbrun']:

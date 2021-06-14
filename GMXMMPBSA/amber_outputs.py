@@ -1475,8 +1475,7 @@ class DecompOut(object):
 
     #==================================================
 
-    def __init__(self, basename, prmtop, surften, csvwriter, num_files=1,
-                 verbose=1):
+    def __init__(self, basename, prmtop, surften, csvwriter, num_files=1, verbose=1):
         from csv import writer
         self.basename = basename # base name of output files
         self.prmtop = prmtop # AmberParm prmtop object
