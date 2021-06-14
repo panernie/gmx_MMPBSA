@@ -27,7 +27,7 @@ files are compatible, as well. Necessary for gmx_MMPBSA functioning.
 # ##############################################################################
 
 from parmed.amber import LoadParm, AmberMask
-from GMXMMPBSA.exceptions import PrmtopError, SelectionError
+from GMXMMPBSA.exceptions import PrmtopError, SelectionError, GMXMMPBSA_WARNING
 
 
 # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -719,8 +719,14 @@ class MMPBSA_System(object):
         # lig_grp_str have no numbers, add a 1 1 to it
         if len(numre.findall(rec_grp_str)) == 0:
             rec_grp_str += "1 1"
+            GMXMMPBSA_WARNING('We expected receptor residues to be defined in the decomposition analysis, however, '
+                              'we have not found any. It will be defined as the 1st residue of the receptor. Consider '
+                              'defining it')
         if len(numre.findall(lig_grp_str)) == 0:
             lig_grp_str += "1 1"
+            GMXMMPBSA_WARNING('We expected ligand residues to be defined in the decomposition analysis, however, '
+                              'we have not found any. It will be defined as the 1st residue of the receptor. Consider '
+                              'defining it')
         return (com_grp_str, rec_grp_str, lig_grp_str)
 
     # -#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -767,8 +773,7 @@ class MMPBSA_System(object):
                     raise SelectionError('Invalid selection! Integers expected.')
 
                 # Now make sure that they're within the legal range and not stupid
-                if res2 < res1 or res1 <= 0 or \
-                        res2 > self.complex_prmtop.ptr('nres'):
+                if res2 < res1 or res1 <= 0 or res2 > self.complex_prmtop.ptr('nres'):
                     raise SelectionError('Invalid selection. Illegal residue range')
 
                 # Now go through and select them
