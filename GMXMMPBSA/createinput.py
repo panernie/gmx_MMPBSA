@@ -63,13 +63,12 @@ def create_inputs(INPUT, prmtop_system, pre):
         # Convert the strings into card objects
         # Now create the mdin objects
         if INPUT['gbrun']:
+            rec_res = ['Residues considered as REC', full_rc]
             if stability:
-                rec_res = ['Residues considered as REC', full_rc]
                 pri_res = ['Residues to print', com_card]
                 com_mdin = SanderGBDecomp(INPUT, rec_res, pri_res)
                 com_mdin.write_input(pre + 'gb_decomp_com.mdin')
             else:
-                rec_res = ['Residues considered as REC', full_rc]
                 lig_res = ['Residues considered as LIG', full_lc]
                 pri_res = ['Residues to print', com_card]
                 com_mdin = SanderGBDecomp(INPUT, rec_res, lig_res, pri_res)
@@ -83,13 +82,12 @@ def create_inputs(INPUT, prmtop_system, pre):
                 rec_mdin.write_input(pre + 'gb_decomp_rec.mdin')
                 lig_mdin.write_input(pre + 'gb_decomp_lig.mdin')
         if INPUT['pbrun']:
+            rec_res = ['Residues considered as REC', full_rc]
             if stability:
-                rec_res = ['Residues considered as REC', full_rc]
                 pri_res = ['Residues to print', com_card]
                 com_mdin = SanderPBDecomp(INPUT, rec_res, pri_res)
                 com_mdin.write_input(pre + 'pb_decomp_com.mdin')
             else:
-                rec_res = ['Residues considered as REC', full_rc]
                 lig_res = ['Residues considered as LIG', full_lc]
                 pri_res = ['Residues to print', com_card]
                 com_mdin = SanderPBDecomp(INPUT, rec_res, lig_res, pri_res)
