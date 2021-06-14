@@ -1550,22 +1550,21 @@ class DecompOut(object):
 
     def get_num_terms(self):
         """ Gets the number of terms in the output file """
-        decfile = open('%s.%d' % (self.basename, 0), 'r')
-        num_terms = 0
-        line = decfile.readline()
-        while line:
-            if not line.startswith(self.indicator):
-                line = decfile.readline()
-                continue
-            while line[0:3] != 'TDC':
-                line = decfile.readline()
-            while line[0:3] == 'TDC':
-                line = decfile.readline()
-                num_terms += 1
-            # We've now gotten to the end of the Total Decomp Contribution,
-            # so we know how many terms we have
-            break
-        decfile.close()
+        with open('%s.%d' % (self.basename, 0), 'r') as decfile:
+            num_terms = 0
+            line = decfile.readline()
+            while line:
+                if not line.startswith(self.indicator):
+                    line = decfile.readline()
+                    continue
+                while line[0:3] != 'TDC':
+                    line = decfile.readline()
+                while line[0:3] == 'TDC':
+                    line = decfile.readline()
+                    num_terms += 1
+                # We've now gotten to the end of the Total Decomp Contribution,
+                # so we know how many terms we have
+                break
         return num_terms
 
     #==================================================
@@ -1573,10 +1572,10 @@ class DecompOut(object):
     def _get_next_term(self, expected_type, framenum=1):
         """ Gets the next energy term from the output file(s) """
         line = self.decfile.readline()
-        if expected_type and not expected_type in self.allowed_tokens:
+        if expected_type and expected_type not in self.allowed_tokens:
             raise OutputError('BUGBUG: expected_type must be in %s' %
                               self.allowed_tokens)
-        while not line[0:3] in self.allowed_tokens:
+        while line[0:3] not in self.allowed_tokens:
             # We only get in here if we've gone off the end of a block, so our
             # current term number is 0 now.
             self.termnum = 0
@@ -1600,13 +1599,13 @@ class DecompOut(object):
         tot = internal + vdw + eel + pol + sas
         self.resnums[0][self.termnum] = resnum
         self.data[line[0:3]]['int'][0][self.termnum] += internal
-        self.data[line[0:3]]['int'][1][self.termnum] += internal * internal
+        self.data[line[0:3]]['int'][1][self.termnum] += internal**2
         self.data[line[0:3]]['vdw'][0][self.termnum] += vdw
-        self.data[line[0:3]]['vdw'][1][self.termnum] += vdw * vdw
+        self.data[line[0:3]]['vdw'][1][self.termnum] += vdw**2
         self.data[line[0:3]]['eel'][0][self.termnum] += eel
-        self.data[line[0:3]]['eel'][1][self.termnum] += eel * eel
+        self.data[line[0:3]]['eel'][1][self.termnum] += eel**2
         self.data[line[0:3]]['pol'][0][self.termnum] += pol
-        self.data[line[0:3]]['pol'][1][self.termnum] += pol * pol
+        self.data[line[0:3]]['pol'][1][self.termnum] += pol**2
         self.data[line[0:3]]['sas'][0][self.termnum] += sas
         self.data[line[0:3]]['sas'][1][self.termnum] += sas * sas
         self.data[line[0:3]]['tot'][0][self.termnum] += tot
@@ -1627,12 +1626,11 @@ class DecompOut(object):
         com_token = self.get_next_term(self.allowed_tokens[0], framenum)
         while com_token:
             # Get all of the tokens
-            for i in range(1, self.num_terms):
+            for _ in range(1, self.num_terms):
                 com_token = self.get_next_term(searched_type, framenum)
 
             token_counter += 1
-            searched_type = self.allowed_tokens[token_counter %
-                                                len(self.allowed_tokens)]
+            searched_type = self.allowed_tokens[token_counter % len(self.allowed_tokens)]
             if token_counter % len(self.allowed_tokens) == 0: framenum += 1
             com_token = self.get_next_term(searched_type, framenum)
 
@@ -1748,10 +1746,10 @@ class PairDecompOut(DecompOut):
     def _get_next_term(self, expected_type=None, framenum=1):
         """ Gets the next energy term from the output file(s) """
         line = self.decfile.readline()
-        if expected_type and not expected_type in self.allowed_tokens:
+        if expected_type and expected_type not in self.allowed_tokens:
             raise OutputError('BUGBUG: expected_type must be in %s' %
                               self.allowed_tokens)
-        while not line[0:3] in self.allowed_tokens:
+        while line[0:3] not in self.allowed_tokens:
             # We only get in here if we've gone off the end of a block, so our
             # current term number is 0 now.
             self.termnum = 0
@@ -1775,13 +1773,13 @@ class PairDecompOut(DecompOut):
         sas = float(line[73:85]) * self.surften
         tot = internal + vdw + eel + pol + sas
         self.data[line[0:3]]['int'][0][self.termnum] += internal
-        self.data[line[0:3]]['int'][1][self.termnum] += internal * internal
+        self.data[line[0:3]]['int'][1][self.termnum] += internal**2
         self.data[line[0:3]]['vdw'][0][self.termnum] += vdw
-        self.data[line[0:3]]['vdw'][1][self.termnum] += vdw * vdw
+        self.data[line[0:3]]['vdw'][1][self.termnum] += vdw**2
         self.data[line[0:3]]['eel'][0][self.termnum] += eel
-        self.data[line[0:3]]['eel'][1][self.termnum] += eel * eel
+        self.data[line[0:3]]['eel'][1][self.termnum] += eel**2
         self.data[line[0:3]]['pol'][0][self.termnum] += pol
-        self.data[line[0:3]]['pol'][1][self.termnum] += pol * pol
+        self.data[line[0:3]]['pol'][1][self.termnum] += pol**2
         self.data[line[0:3]]['sas'][0][self.termnum] += sas
         self.data[line[0:3]]['sas'][1][self.termnum] += sas * sas
         self.data[line[0:3]]['tot'][0][self.termnum] += tot
@@ -2505,7 +2503,7 @@ class MultiTrajDecompBinding(DecompBinding):
         searched_token = self.allowed_tokens[0]
         my_term = self.com.get_next_term(searched_token, framenum)
         while my_term:
-            for i in range(1, self.com.num_terms):
+            for _ in range(1, self.com.num_terms):
                 my_term = self.com.get_next_term(searched_token, framenum)
 
             token_counter += 1
@@ -2520,7 +2518,7 @@ class MultiTrajDecompBinding(DecompBinding):
         framenum = 1
         my_term = self.rec.get_next_term(searched_token, framenum)
         while my_term:
-            for i in range(1, self.rec.num_terms):
+            for _ in range(1, self.rec.num_terms):
                 my_term = self.rec.get_next_term(searched_token, framenum)
 
             token_counter += 1
@@ -2535,7 +2533,7 @@ class MultiTrajDecompBinding(DecompBinding):
         framenum = 1
         my_term = self.lig.get_next_term(searched_token, framenum)
         while my_term:
-            for i in range(1, self.lig.num_terms):
+            for _ in range(1, self.lig.num_terms):
                 my_term = self.lig.get_next_term(searched_token, framenum)
 
             token_counter += 1
@@ -2606,10 +2604,8 @@ class MultiTrajPairDecompBinding(MultiTrajDecompBinding, PairDecompBinding):
                 for i in range(self.num_terms):
                     # Get the value of the other term -- either in ligand
                     # or receptor
-                    if self.prmtop_system.res_list[self.com.resnums[0][i]-1]. \
-                            receptor_number:
-                        if self.prmtop_system.res_list[self.com.resnums[1][i]-1]. \
-                                receptor_number:
+                    if self.prmtop_system.res_list[self.com.resnums[0][i]-1].receptor_number:
+                        if self.prmtop_system.res_list[self.com.resnums[1][i]-1].receptor_number:
                             alone = False
                             other = self.rec
                             numframes = self.num_rec_frames
@@ -2617,8 +2613,7 @@ class MultiTrajPairDecompBinding(MultiTrajDecompBinding, PairDecompBinding):
                             num_rec_terms += 1
                         else: alone = True # Only complex has this interaction
                     else:
-                        if self.prmtop_system.res_list[self.com.resnums[1][i]-1]. \
-                                ligand_number:
+                        if self.prmtop_system.res_list[self.com.resnums[1][i]-1].ligand_number:
                             alone = False
                             other = self.lig
                             numframes = self.num_lig_frames
@@ -2627,10 +2622,8 @@ class MultiTrajPairDecompBinding(MultiTrajDecompBinding, PairDecompBinding):
                         else: alone = True # Only complex has this interaction
 
                     if alone:
-                        self.data_stats[key1][key2][0][i] = \
-                            self.com.data[key1][key2][0][i]
-                        self.data_stats[key1][key2][1][i] = \
-                            self.com.data[key1][key2][1][i]
+                        self.data_stats[key1][key2][0][i] = self.com.data[key1][key2][0][i]
+                        self.data_stats[key1][key2][1][i] = self.com.data[key1][key2][1][i]
                     else:
                         cavg = self.com.data[key1][key2][0][i] / self.num_com_frames
                         oavg = other.data[key1][key2][0][oi] / numframes
