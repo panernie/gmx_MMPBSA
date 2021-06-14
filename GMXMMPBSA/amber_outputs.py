@@ -52,7 +52,7 @@ class EnergyVector(list):
 
     def __add__(self, other):
         # If other is a scalar, do scalar addition
-        if isinstance(other, float) or isinstance(other, int):
+        if isinstance(other, (float, int)):
             return EnergyVector([x + other for x in self])
         # Otherwise, vector addition
         if len(self) != len(other):
@@ -63,7 +63,7 @@ class EnergyVector(list):
 
     def __sub__(self, other):
         # If other is a scalar, do scalar subtraction
-        if isinstance(other, float) or isinstance(other, int):
+        if isinstance(other, (float, int)):
             return EnergyVector([x - other for x in self])
         # Otherwise, vector subtraction
         if len(self) != len(other):
@@ -77,15 +77,16 @@ class EnergyVector(list):
         Return a copy of the vector whose every element is multiplied by the
         scalar
         """
-        if not isinstance(scalar, float) and not isinstance(scalar, int):
+        if isinstance(scalar, (float, int)):
+            return EnergyVector([x * scalar for x in self])
+        else:
             raise TypeError('Cannot multiply a vector by a non-numeric scalar')
-        return EnergyVector([x * scalar for x in self])
 
     #==================================================
 
     def __imul__(self, scalar):
         """ In-place multiplication -- no allocation of another EnergyVector """
-        if not isinstance(scalar, float) and not isinstance(scalar, int):
+        if not isinstance(scalar, (float, int)):
             raise TypeError('Cannot multiply a vector by a non-numeric scalar')
         for i, x in enumerate(self):
             self[i] = x * scalar
@@ -95,7 +96,7 @@ class EnergyVector(list):
     def __iadd__(self, other):
         """ In-place addition -- no allocation of another EnergyVector """
         # Scalar addition?
-        if isinstance(other, int) or isinstance(other, float):
+        if isinstance(other, (int, float)):
             for i in range(len(self)):
                 self[i] += other
             return
@@ -110,7 +111,7 @@ class EnergyVector(list):
     def __isub__(self, other):
         """ In-place subtraction -- no allocation of another EnergyVector """
         # Scalar subtraction?
-        if isinstance(other, int) or isinstance(other, float):
+        if isinstance(other, (int, float)):
             for i in range(len(self)):
                 self[i] -= other
             return
@@ -128,18 +129,11 @@ class EnergyVector(list):
         term to a single integer or floating point number
         """
         try:
-            for val in self:
-                if val > float(other): return False
-            return True
+            return not any(val > float(other) for val in self)
         except TypeError:
             if len(self) != len(other):
                 return self.avg() < other.avg()
-            for i, s in enumerate(self):
-                if s > other[i]: return False
-            return True
-
-        raise InternalError('Should not be here!')
-
+            return all(s <= other[i] for i, s in enumerate(self))
     #==================================================
 
     def __eq__(self, other):
@@ -148,18 +142,12 @@ class EnergyVector(list):
         integer/float.
         """
         try:
-            for val in self:
-                if val != float(other): return False
-            return True
+            return not any(val != float(other) for val in self)
         except TypeError:
             if len(self) != len(other):
                 return self.avg() == other.avg()
             else:
-                for i, s in enumerate(self):
-                    if s != other[i]: return False
-                return True
-
-        raise InternalError('Should not be here!')
+                return all(s == other[i] for i, s in enumerate(self))
 
     #==================================================
 
@@ -187,9 +175,7 @@ class EnergyVector(list):
     #==================================================
 
     def stdev(self):
-        rsum2 = 0
-        for num in self:
-            rsum2 += num * num
+        rsum2 = sum(num * num for num in self)
         rsum2 /= len(self)
         avg = self.avg()
         return sqrt(abs(rsum2 - avg * avg))
@@ -198,9 +184,7 @@ class EnergyVector(list):
 
     def abs_gt(self, val):
         """ If any element's absolute value is greater than a # """
-        for myval in self:
-            if abs(myval) > val: return True
-        return False
+        return any(abs(myval) > val for myval in self)
 
 #-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
 
@@ -249,10 +233,10 @@ class AmberOutput(object):
             in spreadsheets
         """
         # Determine which keys we want to print
-        print_keys = []
-        for key in self.data_keys:
-            if self.print_levels[key] > self.verbose: continue
-            print_keys.append(key)
+        print_keys = [
+            key for key in self.data_keys if self.print_levels[key] <= self.verbose
+        ]
+
         # Add on the composite keys
         print_keys += self.composite_keys
 
@@ -337,9 +321,8 @@ class AmberOutput(object):
         if self.is_read: return None # don't read through them twice
 
         for fileno in range(self.num_files):
-            output_file = open('%s.%d' % (self.basename, fileno), 'r')
-            self._get_energies(output_file)
-            output_file.close()
+            with open('%s.%d' % (self.basename, fileno), 'r') as output_file:
+                self._get_energies(output_file)
             # If we have to get energies elsewhere (e.g., with GB and ESURF), do
             # that here. This is an empty function when unnecessary
             self._extra_reading(fileno)
@@ -498,51 +481,49 @@ class QHout(object):
 
     def _read(self):
         """ Parses the output files and fills the data arrays """
-        output = open(self.filename, 'r')
-        rawline = output.readline()
-        self.com = EnergyVector([0,0,0,0])
-        self.rec = EnergyVector([0,0,0,0])
-        self.lig = EnergyVector([0,0,0,0])
-        comdone = False # if we've done the complex yet (filled in self.com)
-        recdone = False # if we've done the receptor yet (filled in self.rec)
-
-        # Try to fill in all found entropy values. If we can only find 1 set,
-        # we're doing stability calculations
-        while rawline:
-            if rawline[0:6] == " Total":
-                if not comdone:
-                    self.com[0] = (float(rawline.split()[3]) * self.temperature/1000)
-                    self.com[1] = (float(output.readline().split()[3]) *
-                                   self.temperature/1000)
-                    self.com[2] = (float(output.readline().split()[3]) *
-                                   self.temperature/1000)
-                    self.com[3] = (float(output.readline().split()[3]) *
-                                   self.temperature/1000)
-                    comdone = True
-                elif not recdone:
-                    self.rec[0] = (float(rawline.split()[3]) * self.temperature/1000)
-                    self.rec[1] = (float(output.readline().split()[3]) *
-                                   self.temperature/1000)
-                    self.rec[2] = (float(output.readline().split()[3]) *
-                                   self.temperature/1000)
-                    self.rec[3] = (float(output.readline().split()[3]) *
-                                   self.temperature/1000)
-                    recdone = True
-                else:
-                    self.lig[0] = (float(rawline.split()[3]) * self.temperature/1000)
-                    self.lig[1] = (float(output.readline().split()[3]) *
-                                   self.temperature/1000)
-                    self.lig[2] = (float(output.readline().split()[3]) *
-                                   self.temperature/1000)
-                    self.lig[3] = (float(output.readline().split()[3]) *
-                                   self.temperature/1000)
-                    break
+        with open(self.filename, 'r') as output:
             rawline = output.readline()
-        # end while rawline
+            self.com = EnergyVector([0,0,0,0])
+            self.rec = EnergyVector([0,0,0,0])
+            self.lig = EnergyVector([0,0,0,0])
+            comdone = False # if we've done the complex yet (filled in self.com)
+            recdone = False # if we've done the receptor yet (filled in self.rec)
 
-        self.stability = not recdone
+            # Try to fill in all found entropy values. If we can only find 1 set,
+            # we're doing stability calculations
+            while rawline:
+                if rawline[0:6] == " Total":
+                    if not comdone:
+                        self.com[0] = (float(rawline.split()[3]) * self.temperature/1000)
+                        self.com[1] = (float(output.readline().split()[3]) *
+                                       self.temperature/1000)
+                        self.com[2] = (float(output.readline().split()[3]) *
+                                       self.temperature/1000)
+                        self.com[3] = (float(output.readline().split()[3]) *
+                                       self.temperature/1000)
+                        comdone = True
+                    elif not recdone:
+                        self.rec[0] = (float(rawline.split()[3]) * self.temperature/1000)
+                        self.rec[1] = (float(output.readline().split()[3]) *
+                                       self.temperature/1000)
+                        self.rec[2] = (float(output.readline().split()[3]) *
+                                       self.temperature/1000)
+                        self.rec[3] = (float(output.readline().split()[3]) *
+                                       self.temperature/1000)
+                        recdone = True
+                    else:
+                        self.lig[0] = (float(rawline.split()[3]) * self.temperature/1000)
+                        self.lig[1] = (float(output.readline().split()[3]) *
+                                       self.temperature/1000)
+                        self.lig[2] = (float(output.readline().split()[3]) *
+                                       self.temperature/1000)
+                        self.lig[3] = (float(output.readline().split()[3]) *
+                                       self.temperature/1000)
+                        break
+                rawline = output.readline()
+            # end while rawline
 
-        output.close()
+            self.stability = not recdone
 
 #-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
 
@@ -624,10 +605,8 @@ class NMODEout(object):
 
         # Loop through all filenames
         for fileno in range(self.num_files):
-            output_file = open('%s.%d' % (self.basename, fileno), 'r')
-            self._get_energies(output_file)
-            output_file.close()
-
+            with open('%s.%d' % (self.basename, fileno), 'r') as output_file:
+                self._get_energies(output_file)
         self.is_read = True
 
     #==================================================
@@ -1021,16 +1000,13 @@ class QMMMout(GBout):
                 words = outfile.readline().split()
                 # This is where ESCF will be. Since ESCF can differ based on which
                 # qmtheory was chosen, we just check to see if it's != ESURF:
-                if words[0] != 'minimization':
-                    # It's possible that there is no space between ***ESCF and the =.
-                    # If not, the ESCF variable will be the second, not the 3rd word
-                    if words[0].endswith('='):
-                        self.data['ESCF'].append(float(words[1]))
-                    else:
-                        self.data['ESCF'].append(float(words[2]))
-                else:
+                if words[0] == 'minimization':
                     self.data['ESCF'].append(0.0)
 
+                elif words[0].endswith('='):
+                    self.data['ESCF'].append(float(words[1]))
+                else:
+                    self.data['ESCF'].append(float(words[2]))
             rawline = outfile.readline()
 
             # end if rawline[0:5] == ' BOND':
@@ -1319,10 +1295,12 @@ class SingleTrajBinding(BindingStatistics):
             csvwriter.writerow(['DELTA Energy Terms'])
 
             # Determine our print_keys
-            print_keys = []
-            for key in self.data_keys:
-                if self.print_levels[key] > self.verbose: continue
-                print_keys.append(key)
+            print_keys = [
+                key
+                for key in self.data_keys
+                if self.print_levels[key] <= self.verbose
+            ]
+
             print_keys += self.composite_keys
 
             # write the header
@@ -1427,8 +1405,7 @@ class MultiTrajBinding(BindingStatistics):
 
         # verbose == 0 means don't print com/rec/lig, but print diffs as though
         # verbose == 2 for multi traj
-        if self.verbose < 2: verbose = 2
-        else: verbose = self.verbose
+        verbose = max(self.verbose, 2)
 
         for key in self.data_keys:
             # Skip terms we don't want to print
