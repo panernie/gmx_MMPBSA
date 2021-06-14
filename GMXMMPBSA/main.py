@@ -726,10 +726,10 @@ class MMPBSA_App(object):
         if self.INPUT['decomprun']:
             if self.stability:
                 write_decomp_stability_output(self.FILES, self.INPUT, self.mpi_size,
-                                              self.normal_system, self.mutant_system, self.mut_str, self.pre)
+                                              self.normal_system, self.mutant_system, self.pre)
             else:
                 write_decomp_binding_output(self.FILES, self.INPUT, self.mpi_size,
-                                            self.normal_system, self.mutant_system, self.mut_str, self.pre)
+                                            self.normal_system, self.mutant_system, self.pre)
         self.timer.stop_timer('output')
 
     def finalize(self):
