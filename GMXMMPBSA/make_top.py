@@ -122,9 +122,9 @@ class CheckMakeTop:
             tops = self.makeToptleap()
 
         if self.INPUT['decomprun']:
-            self.INPUT['print_res'] = self.get_selected_residues(self.INPUT['print_res'])
+            self.INPUT['print_res'] = ','.join(str(x) for x in self.get_selected_residues(self.INPUT['print_res']))
         if self.INPUT['qm_residues']:
-            self.INPUT['qm_residues'] = self.get_selected_residues(self.INPUT['qm_residues'])
+            self.INPUT['qm_residues'] = ','.join(str(x) for x in self.get_selected_residues(self.INPUT['qm_residues']))
 
         self.cleanup_trajs()
         return tops
