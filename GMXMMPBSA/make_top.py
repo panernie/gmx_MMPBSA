@@ -430,30 +430,44 @@ class CheckMakeTop:
                 GMXMMPBSA_ERROR("No valid residue for mutation was defined. Please make sure that at least one valid "
                                 "residue is defined")
             for m in mut_info:
-                com_mut_index, part_mut, part_index, mut_labellist = m
-                # com_mut_index, part_mut, part_index, self.mut_label = self.getMutationInfo()
+                com_mut_index, part_mut, part_index, labels = m
                 mut_com_amb_prm = self.makeMutTop(com_amb_prm, com_mut_index)
+                self.mutant_info[f'{labels[1]}{labels[2]}'] = SimpleNamespace(
+                    loc=part_mut, rec_frags=[], lig_frags=[], label=f'{labels[1]}{labels[2]}',
+                    complex_prmtop=self.mutant_complex_pmrtop.format(f"_{labels[1]}{labels[2]}"),
+                    receptor_prmtop=(self.mutant_receptor_pmrtop.format(f"_{labels[1]}{labels[2]}") if part_mut == 'REC'
+                                                                                  else self.receptor_pmrtop),
+                    ligand_prmtop=(self.mutant_ligand_pmrtop.format(f"_{labels[1]}{labels[2]}") if part_mut == 'LIG'
+                                                                                  else self.ligand_pmrtop))
+
+
+
+                # com_mut_index, part_mut, part_index, self.mut_label = self.getMutationInfo()
+                # mut_com_amb_prm = self.makeMutTop(com_amb_prm, com_mut_index)
                 # change de PBRadii
                 action = ChRad(mut_com_amb_prm, PBRadii[self.INPUT['PBRadii']])
-                mut_com_amb_prm.write_parm(self.mutant_complex_pmrtop.format(f"{mut_labellist[1]}{mut_labellist[2]}"))
-
+                mut_com_amb_prm.write_parm(self.mutant_info[f'{labels[1]}{labels[2]}'].complex_prmtop)
+                out_prmtop = None
                 if part_mut == 'REC':
-                    logging.info('Detecting mutation in Receptor. Building Mutant Receptor Topology...')
-                    mut_com_amb_prm.strip(f'!:{rec_indexes_string}')
-                    mdata = [self.mutant_receptor_pmrtop, 'REC']
-                    self.mutant_ligand_pmrtop = None
+                    logging.info(f"Detecting mutation ({labels[1]}{labels[2]}) in Receptor. Building "
+                                 f"Mutant Receptor Topology...")
+                    # mut_com_amb_prm.strip(f'!:{rec_indexes_string}')
+                    out_prmtop = self.mutant_info[f'{labels[1]}{labels[2]}'].receptor_prmtop
+                    # self.mutant_ligand_pmrtop = None
                     if rec_hastop:
                         mtop = self.makeMutTop(rec_amb_prm, part_index)
                     else:
+                        mut_com_amb_prm.strip(f'!:{rec_indexes_string}')
                         mtop = mut_com_amb_prm
                 else:
-                    logging.info('Detecting mutation in Ligand. Building Mutant Ligand Topology...')
-                    mut_com_amb_prm.strip(f':{rec_indexes_string}')
-                    mdata = [self.mutant_ligand_pmrtop, 'LIG']
-                    self.mutant_receptor_pmrtop = None
+                    logging.info(f'Detecting mutation ({labels[1]}{labels[2]}) in Ligand. Building '
+                                 f'Mutant Ligand Topology...')
+                    out_prmtop = self.mutant_info[f'{labels[1]}{labels[2]}'].ligand_prmtop
+                    # self.mutant_receptor_pmrtop = None
                     if lig_hastop:
                         mtop = self.makeMutTop(lig_amb_prm, part_index)
                     else:
+                        mut_com_amb_prm.strip(f':{rec_indexes_string}')
                         mtop = mut_com_amb_prm
 
                 if com_top_parm == 'charmm':
@@ -462,7 +476,7 @@ class CheckMakeTop:
                     mut_prot_amb_prm = parmed.amber.AmberParm.from_structure(mtop)
                 # change de PBRadii
                 action = ChRad(mut_prot_amb_prm, PBRadii[self.INPUT['PBRadii']])
-                mut_prot_amb_prm.write_parm(mdata[0])
+                mut_prot_amb_prm.write_parm(out_prmtop)
         else:
             self.mutant_complex_pmrtop = None
 
