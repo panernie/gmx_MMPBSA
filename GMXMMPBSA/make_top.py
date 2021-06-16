@@ -493,7 +493,7 @@ class CheckMakeTop:
         str_.strip(mask)
         str_file = self.FILES.prefix + f'{basename}_F{c}.pdb'
         str_.save(str_file, 'pdb', True, renumber=False)
-        return end
+        return end, str_file
 
 
     def pdb2prmtop(self):
@@ -528,8 +528,8 @@ class CheckMakeTop:
         self.ligand_info = {}
         start = 1
         for c, r in enumerate(self.resi['LIG']['num'], start=1):
-            end, sfile = self._split_str(start, r, c, 'LIG', self.receptor_str)
-            self.ligand_info[f'REC{c}'] = sfile
+            end, sfile = self._split_str(start, r, c, 'LIG', self.ligand_str)
+            self.ligand_info[f'LIG{c}'] = sfile
             start += end
             # end = start + (r[1] - r[0])
             # mask = f'!:{start}-{end}'
@@ -564,7 +564,8 @@ class CheckMakeTop:
                     logging.info(f"Detecting mutation ({labels[1]}{labels[2]}) in Receptor. Building "
                                  f"Mutant Receptor Structure...")
                     for c, r in enumerate(self.resi['REC']['num']):
-                        end, sfile = self._split_str(start, r, c, f'MUT_{labels[1]}{labels[2]}_REC', self.receptor_str)
+                        end, sfile = self._split_str(start, r, c, f'MUT_{labels[1]}{labels[2]}_REC',
+                                                     self.receptor_str, part_index)
                         self.mutant_info[f'{labels[1]}{labels[2]}'].rec_frags.append(sfile)
                         start += end
 
@@ -586,7 +587,8 @@ class CheckMakeTop:
                                  'Mutant Ligand Structure...')
                     # self.mutant_info['loc'].append('LIG')
                     for c, r in enumerate(self.resi['LIG']['num']):
-                        end, sfile = self._split_str(start, r, c, f'MUT_{labels[1]}{labels[2]}_LIG', self.ligand_str)
+                        end, sfile = self._split_str(start, r, c, f'MUT_{labels[1]}{labels[2]}_LIG', self.ligand_str,
+                                                     part_index)
                         self.mutant_info[f'{labels[1]}{labels[2]}'].lig_frags.append(sfile)
                         start += end
 
@@ -829,7 +831,7 @@ class CheckMakeTop:
         info = []
         for r in sele_res_dict:
             res = self.complex_str.residues[r - 1]
-            if not parmed.residue.AminoAcidResidue.has(res):
+            if not parmed.residue.AminoAcidResidue.has(res.name):
                 GMXMMPBSA_WARNING(f"Selecting residue {res.chain}:{res.name}:{res.number} can't be mutated and will "
                                   f"be ignored...")
             # label = (f"{res.name}[{res.chain}:{res.number}:{res.insertion_code}]{self.INPUT['mutant']}" if
