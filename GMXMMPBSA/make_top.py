@@ -313,10 +313,24 @@ class CheckMakeTop:
         return forcefields
 
     def check4water(self):
-        counter = 0
-        for res in self.complex_str:
-            if res.name in ['SOD', 'CLA', 'TIP3P', 'TIP4P', 'TIPS3P', 'TIP5P', 'SPC', 'SPC/E', 'SPCE', 'TIP3o', 'WAT']:
-                counter += 1
+        counter = sum(
+            res.name
+            in [
+                'SOD',
+                'CLA',
+                'TIP3P',
+                'TIP4P',
+                'TIPS3P',
+                'TIP5P',
+                'SPC',
+                'SPC/E',
+                'SPCE',
+                'TIP3o',
+                'WAT',
+            ]
+            for res in self.complex_str
+        )
+
         if counter:
             GMXMMPBSA_ERROR(f'gmx_MMPBSA does not support water molecules in any structure, but we found {counter} '
                             f'molecules in the complex.')
@@ -408,7 +422,7 @@ class CheckMakeTop:
         lig_amb_prm.write_parm(self.ligand_pmrtop)
 
         if self.INPUT['alarun']:
-            logging.info('Building Mutant Complex Topology...')
+            logging.info('Building Mutants Complex Topology...')
             # get mutation index in complex
             mut_info = self.getMutationInfo()
             # Check if exist at least one residue mutated
@@ -514,7 +528,8 @@ class CheckMakeTop:
             # c += 1
 
         if self.INPUT['alarun']:
-
+            logging.info('Building Mutants Complex Topology...')
+            # get mutation index in complex
             mut_info = self.getMutationInfo()
             # Check if exist at least one residue mutated
             if not mut_info:
