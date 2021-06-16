@@ -411,6 +411,10 @@ class CheckMakeTop:
             logging.info('Building Mutant Complex Topology...')
             # get mutation index in complex
             mut_info = self.getMutationInfo()
+            # Check if exist at least one residue mutated
+            if not mut_info:
+                GMXMMPBSA_ERROR("No valid residue for mutation was defined. Please make sure that at least one valid "
+                                "residue is defined")
             for m in mut_info:
                 com_mut_index, part_mut, part_index, mut_labellist = m
                 # com_mut_index, part_mut, part_index, self.mut_label = self.getMutationInfo()
@@ -451,6 +455,19 @@ class CheckMakeTop:
         return (self.complex_pmrtop, self.receptor_pmrtop, self.ligand_pmrtop, self.mutant_complex_pmrtop,
                 self.mutant_receptor_pmrtop, self.mutant_ligand_pmrtop)
 
+    def _split_str(self, start, r, c, basename, struct, mut_index=0):
+        end = start + (r[1] - r[0])
+        mask = f'!:{start}-{end}'
+        # start += end
+        str_ = self.molstr(struct)
+        if mut_index:
+            str_ = self.makeMutTop(str_, mut_index, True)
+        str_.strip(mask)
+        str_file = self.FILES.prefix + f'{basename}_F{c}.pdb'
+        str_.save(str_file, 'pdb', True, renumber=False)
+        return end
+
+
     def pdb2prmtop(self):
         """
         Generate parmed structure object for complex, receptor and ligand ( if it is protein-like)
@@ -463,35 +480,46 @@ class CheckMakeTop:
         self.fixparm2amber(self.receptor_str, removeH=True)
         self.fixparm2amber(self.ligand_str, removeH=True)
 
-        self.receptor_list = {}
+        self.receptor_info = {}
         start = 1
         for c, r in enumerate(self.resi['REC']['num'], start=1):
-            end = start + (r[1]- r[0])
-            mask = f'!:{start}-{end}'
+            end, sfile = self._split_str(start, r, c, 'REC', self.receptor_str)
+            self.receptor_info[f'REC{c}'] = sfile
             start += end
-            rec = self.molstr(self.receptor_str)
-            rec.strip(mask)
-            rec_file = self.FILES.prefix + f'REC_F{c}.pdb'
-            rec.save(rec_file, 'pdb', True, renumber=False)
-            self.receptor_list[f'REC{c}'] = rec_file
+
+            # end = start + (r[1] - r[0])
+            # mask = f'!:{start}-{end}'
+            # start += end
+            # rec = self.molstr(self.receptor_str)
+            # rec.strip(mask)
+            # rec_file = self.FILES.prefix + f'REC_F{c}.pdb'
+            # rec.save(rec_file, 'pdb', True, renumber=False)
+            # self.receptor_info[f'REC{c}'] = rec_file
             # c += 1
 
-        self.ligand_list = {}
+        self.ligand_info = {}
         start = 1
         for c, r in enumerate(self.resi['LIG']['num'], start=1):
-            end = start + (r[1] - r[0])
-            mask = f'!:{start}-{end}'
+            end, sfile = self._split_str(start, r, c, 'LIG', self.receptor_str)
+            self.ligand_info[f'REC{c}'] = sfile
             start += end
-            lig = self.molstr(self.ligand_str)
-            lig.strip(mask)
-            lig_file = self.FILES.prefix + f'LIG_F{c}.pdb'
-            lig.save(lig_file, 'pdb', True, renumber=False)
-            self.ligand_list[f'LIG{c}'] = lig_file
+            # end = start + (r[1] - r[0])
+            # mask = f'!:{start}-{end}'
+            # start += end
+            # lig = self.molstr(self.ligand_str)
+            # lig.strip(mask)
+            # lig_file = self.FILES.prefix + f'LIG_F{c}.pdb'
+            # lig.save(lig_file, 'pdb', True, renumber=False)
+            # self.ligand_info[f'LIG{c}'] = lig_file
             # c += 1
 
         if self.INPUT['alarun']:
 
             mut_info = self.getMutationInfo()
+            # Check if exist at least one residue mutated
+            if not mut_info:
+                GMXMMPBSA_ERROR("No valid residue for mutation was defined. Please make sure that at least one valid "
+                                "residue is defined")
             for m in mut_info:
                 com_mut_index, part_mut, part_index, labels = m
                 self.mutant_info[f'{labels[1]}{labels[2]}'] = SimpleNamespace(loc=part_mut, rec_frags=[], lig_frags=[],
@@ -503,44 +531,49 @@ class CheckMakeTop:
                                 else self.ligand_pmrtop))
                 # com_mut_index, part_mut, part_index, self.mut_label = self.getMutationInfo()
                 start = 1
-                c = 1
                 if part_mut == 'REC':
                     logging.info(f"Detecting mutation ({labels[1]}{labels[2]}) in Receptor. Building "
                                  f"Mutant Receptor Structure...")
-                    mut_receptor_list = {}
-                    for r in self.resi['REC']['num']:
-                        end = start + (r[1] - r[0])
-                        mask = f'!:{start}-{end}'
+                    for c, r in enumerate(self.resi['REC']['num']):
+                        end, sfile = self._split_str(start, r, c, f'MUT_{labels[1]}{labels[2]}_REC', self.receptor_str)
+                        self.mutant_info[f'{labels[1]}{labels[2]}'].rec_frags.append(sfile)
                         start += end
-                        rec = self.molstr(self.receptor_str)
-                        mut_rec = self.makeMutTop(rec, part_index, True)
-                        mut_rec.strip(mask)
 
-                        mut_rec_file = (self.FILES.prefix +
-                                        f"MUT_{labels[1]}{labels[2]}_REC_F{c}.pdb")
-                        mut_rec.save(mut_rec_file, 'pdb', True, renumber=False)
-                        self.mutant_info[f'{labels[1]}{labels[2]}'].rec_frags.append(mut_rec_file)
+                        # end = start + (r[1] - r[0])
+                        # mask = f'!:{start}-{end}'
+                        # start += end
+                        # rec = self.molstr(self.receptor_str)
+                        # mut_rec = self.makeMutTop(rec, part_index, True)
+                        # mut_rec.strip(mask)
+
+                        # mut_rec_file = self.FILES.prefix + f"MUT_{labels[1]}{labels[2]}_REC_F{c}.pdb"
+                        # mut_rec.save(mut_rec_file, 'pdb', True, renumber=False)
+                        # self.mutant_info[f'{labels[1]}{labels[2]}'].rec_frags.append(mut_rec_file)
                         # mut_receptor_list[f"MREC{mut_labellist[1]}{mut_labellist[2]}_{c}"] = mut_rec_file
-                        c += 1
+                        # c += 1
                     # self.mutant_info['mut_rec'].append(mut_receptor_list)
                 else:
                     logging.info(f'Detecting mutation ({labels[1]}{labels[2]}) in Ligand. Building '
                                  'Mutant Ligand Structure...')
                     # self.mutant_info['loc'].append('LIG')
-                    mut_ligand_list = {}
-                    for r in self.resi['LIG']['num']:
-                        end = start + (r[1] - r[0])
-                        mask = f'!:{start}-{end}'
+                    for c, r in enumerate(self.resi['LIG']['num']):
+                        end, sfile = self._split_str(start, r, c, f'MUT_{labels[1]}{labels[2]}_LIG', self.ligand_str)
+                        self.mutant_info[f'{labels[1]}{labels[2]}'].lig_frags.append(sfile)
                         start += end
-                        lig = self.molstr(self.ligand_str)
-                        mut_lig = self.makeMutTop(lig, part_index, True)
-                        mut_lig.strip(mask)
-                        mut_lig_file = (self.FILES.prefix +
-                                        f"MUT_{labels[1]}{labels[2]}_LIG_F{c}.pdb")
-                        mut_lig.save(mut_lig_file, 'pdb', True, renumber=False)
-                        mut_ligand_list[f'MLIG{labels[1]}{labels[2]}{c}'] = mut_lig_file
-                        c += 1
-                    # self.mutant_info['mut_lig'].append(mut_ligand_list)
+
+                        # end = start + (r[1] - r[0])
+                        # mask = f'!:{start}-{end}'
+                        # start += end
+                        # lig = self.molstr(self.ligand_str)
+                        # mut_lig = self.makeMutTop(lig, part_index, True)
+                        # mut_lig.strip(mask)
+                        #
+                        # mut_lig_file = self.FILES.prefix + f"MUT_{labels[1]}{labels[2]}_LIG_F{c}.pdb"
+                        # mut_lig.save(mut_lig_file, 'pdb', True, renumber=False)
+                        # self.mutant_info[f'{labels[1]}{labels[2]}'].lig_frags.append(mut_lig_file)
+                        # c += 1
+                    # self.mutant_info['mut_lig'].append(mut_ligand_info)
+
     @staticmethod
     def cleantop(top_file, ndx):
         """
@@ -559,7 +592,11 @@ class CheckMakeTop:
         with open(top_file) as topf:
             for line in topf:
                 if line.startswith('#include') and 'forcefield.itp' in line:
-                    if not ('charmm' in line.lower() or 'toppar' in line.lower() or 'amber' in line.lower()):
+                    if (
+                        'charmm' not in line.lower()
+                        and 'toppar' not in line.lower()
+                        and 'amber' not in line.lower()
+                    ):
                         GMXMMPBSA_ERROR(f'Unknown force field in GROMACS topology in line:\n {line}')
                 elif '[ molecules ]' in line:
                     molsect = True
@@ -763,6 +800,9 @@ class CheckMakeTop:
         info = []
         for r in sele_res_dict:
             res = self.complex_str.residues[r - 1]
+            if not parmed.residue.AminoAcidResidue.has(res):
+                GMXMMPBSA_WARNING(f"Selecting residue {res.chain}:{res.name}:{res.number} can't be mutated and will "
+                                  f"be ignored...")
             # label = (f"{res.name}[{res.chain}:{res.number}:{res.insertion_code}]{self.INPUT['mutant']}" if
             #          res.insertion_code else f"{res.name}[{res.chain}:{res.number}]{self.INPUT['mutant']}")
             label_list = ([res.name, res.chain, str(res.number), res.insertion_code] if res.insertion_code
@@ -1151,40 +1191,39 @@ class CheckMakeTop:
             self._write_ff(tif)
             REC = []
             LIG = []
-            for rec in self.receptor_list:
+            for rec in self.receptor_info:
                 REC.append(f'{rec}')
-                tif.write(f'{rec} = loadpdb {self.receptor_list[rec]}\n')
+                tif.write(f'{rec} = loadpdb {self.receptor_info[rec]}\n')
             rec_out = ' '.join(REC)
 
             # check if ligand is not protein and always load
             if self.FILES.ligand_mol2:
                 tif.write('LIG1 = loadmol2 {}\n'.format(self.FILES.ligand_mol2))
-                tif.write('check LIG1\n')
                 tif.write('loadamberparams {}\n'.format(self.ligand_frcmod))
+                tif.write('check LIG1\n')
+
                 if self.FILES.stability:
                     self.ligand_pmrtop = None
                 else:
-                    tif.write('saveamberparm LIG1 {t} {p}LIG.inpcrd\n'.format(t=self.ligand_pmrtop,
-                                                                              p=self.FILES.prefix))
-                for lig in self.ligand_list:
+                    tif.write(f'saveamberparm LIG1 {self.ligand_pmrtop} {self.FILES.prefix}LIG.inpcrd\n')
+                for lig in self.ligand_info:
                     LIG.append(f'{lig}')
             else:
-                for lig in self.ligand_list:
+                for lig in self.ligand_info:
                     LIG.append(f'{lig}')
-                    tif.write(f'{lig} = loadpdb {self.ligand_list[lig]}\n')
+                    tif.write(f'{lig} = loadpdb {self.ligand_info[lig]}\n')
                 lig_out = ' '.join(LIG)
                 if self.FILES.stability:
                     self.ligand_pmrtop = None
                 else:
                     tif.write(f'LIG_OUT = combine {{ {lig_out} }}\n')
-                    tif.write('saveamberparm LIG_OUT {t} {p}LIG.inpcrd\n'.format(t=self.ligand_pmrtop,
-                                                                                 p=self.FILES.prefix))
+                    tif.write(f'saveamberparm LIG_OUT {self.ligand_pmrtop} {self.FILES.prefix}LIG.inpcrd\n')
             COM = self._set_com_order(REC, LIG)
             if self.FILES.stability:
                 self.receptor_pmrtop = None
             else:
                 tif.write(f'REC_OUT = combine {{ { rec_out } }}\n')
-                tif.write('saveamberparm REC_OUT {t} {p}REC.inpcrd\n'.format(t=self.receptor_pmrtop, p=self.FILES.prefix))
+                tif.write(f'saveamberparm REC_OUT {self.receptor_pmrtop} {self.FILES.prefix}REC.inpcrd\n')
             com_out = ' '.join(COM)
             tif.write(f'COM_OUT = combine {{ {com_out} }}\n')
             tif.write('saveamberparm COM_OUT {t} {p}COM.inpcrd\n'.format(t=self.complex_pmrtop, p=self.FILES.prefix))
@@ -1214,36 +1253,47 @@ class CheckMakeTop:
                         if not self.FILES.stability:
                             mtif.write(f'{mut}_MREC_OUT{c} = combine {{ {mrec_out} }}\n')
                             mtif.write(f"saveamberparm {mut}_MREC_OUT{c} "
-                                       f"{self.mutant_info[mut].receptor_prmtop} {self.FILES.prefix}MUT_REC_{mut}.inpcrd\n")
+                                       f"{self.mutant_info[mut].receptor_prmtop} "
+                                       f"{self.FILES.prefix}MUT_REC_{mut}.inpcrd\n")
                         # else:
                         #     self.mutant_info['prmtop'].append(None)
                         # check if ligand is not protein and always load
                         if self.FILES.ligand_mol2:
                             mtif.write('LIG1 = loadmol2 {}\n'.format(self.FILES.ligand_mol2))
-                            self.mutant_ligand_pmrtop = None
-                            if self.FILES.stability:
-                                self.mutant_ligand_pmrtop = None
-                            else:
+                            # self.mutant_ligand_pmrtop = None
+                            if not self.FILES.stability:
+                                # self.mutant_ligand_pmrtop = None
+                            # else:
+                                mtif.write(f'loadamberparams {self.ligand_frcmod}\n')
                                 mtif.write('check LIG1\n')
-                                mtif.write('loadamberparams {}\n'.format(self.ligand_frcmod))
+
                         else:
-                            for lig in self.ligand_list:
-                                mtif.write(f'{lig} = loadpdb {self.ligand_list[lig]}\n')
+                            for lig in self.ligand_info:
+                                mtif.write(f'{lig} = loadpdb {self.ligand_info[lig]}\n')
                     else:
                         LIG = []
-                        for mlig in self.mut_ligand_list:
-                            LIG.append(f'{mlig}')
-                            mtif.write(f'{mlig} = loadpdb {self.mut_ligand_list[mlig]}\n')
+                        # for d, mrec in enumerate(self.mutant_info[mut].rec_frags, start=1):
+                        #     REC.append(f'{mut}_MREC{d}')
+                        #     mtif.write(f"{mut}_MREC{d} = loadpdb {mrec}\n")
+                        # mrec_out = ' '.join(REC)
+                        for d, mlig in enumerate(self.mutant_info[mut].lig_frags, start=1):
+                            LIG.append(f'{mut}_MLIG{d}')
+                            mtif.write(f"{mut}_MLIG{d} = loadpdb {mlig}\n")
                         mlig_out = ' '.join(LIG)
 
-                        if self.FILES.stability:
-                            self.mutant_ligand_pmrtop = None
-                        else:
+                        # for mlig in self.mutant_info:
+                        #     LIG.append(f'{mlig}')
+                        #     mtif.write(f'{mlig} = loadpdb {self.mut_ligand_info[mlig]}\n')
+                        # mlig_out = ' '.join(LIG)
+
+                        if not self.FILES.stability:
+                            # self.mutant_ligand_pmrtop = None
+                        # else:
                             mtif.write(f'MLIG_OUT = combine {{ {mlig_out} }}\n')
-                            mtif.write('saveamberparm MLIG_OUT {t} {p}MUT_LIG.inpcrd\n'.format(
-                                    t=self.mutant_ligand_pmrtop, p=self.FILES.prefix))
-                        for rec in self.receptor_list:
-                            mtif.write(f'{rec} = loadpdb {self.receptor_list[rec]}\n')
+                            mtif.write(f'saveamberparm MLIG_OUT {self.mutant_info[mut].ligand_prmtop} '
+                                       f'{self.FILES.prefix}MUT_LIG.inpcrd\n')
+                        for rec in self.receptor_info:
+                            mtif.write(f'{rec} = loadpdb {self.receptor_info[rec]}\n')
 
                     MCOM = self._set_com_order(REC, LIG)
                     mcom_out = ' '.join(MCOM)
