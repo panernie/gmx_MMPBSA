@@ -120,6 +120,7 @@ class CheckMakeTop:
         else:
             self.pdb2prmtop()
             tops = self.makeToptleap()
+            print(tops)
 
         if self.INPUT['decomprun']:
             self.INPUT['print_res'] = ','.join(str(x) for x in self.get_selected_residues(self.INPUT['print_res']))
@@ -302,10 +303,10 @@ class CheckMakeTop:
     def check_ff_definition(self):
         # first we check if forcefields was defined
         prot_lig_ff = [self.INPUT['protein_forcefield'], self.INPUT['ligand_forcefield']]
-
-        if [ x.strip() for x in self.INPUT['forcefields'].split(',')] != prot_lig_ff:
-            if [ x.strip() for x in self.INPUT['forcefields'].split(',')] != ['oldff/leaprc.ff99SB', 'leaprc.gaff']:
-                forcefields = [ x.strip() for x in self.INPUT['forcefields'].split(',')]
+        ff = [ x.strip() for x in self.INPUT['forcefields'].split(',')]
+        if ff != prot_lig_ff:
+            if ff != ['oldff/leaprc.ff99SB', 'leaprc.gaff']:
+                forcefields = ff
             else:
                 forcefields = self.INPUT['protein_forcefield'], self.INPUT['ligand_forcefield']
         else:
@@ -365,9 +366,7 @@ class CheckMakeTop:
             logging.info('A Receptor topology file was defined. Using MT approach...')
             logging.info('Building AMBER Receptor Topology from GROMACS Receptor Topology...')
             rec_top = self.cleantop(self.FILES.receptor_top, self.indexes[0])
-            # parmed.gromacs.GromacsTopologyFile(self.complex_temp_top,xyz=self.complex_str_file)
             rec_top.coordinates = self.receptor_str.coordinates
-            # rec_top = parmed.gromacs.GromacsTopologyFile(self.receptor_temp_top, xyz=self.receptor_str_file)
             if rec_top.impropers or rec_top.urey_bradleys or rec_top.cmaps:
                 if com_top_parm == 'amber':
                     GMXMMPBSA_ERROR('Inconsistent parameter format. The defined Complex is AMBER type while the '
@@ -395,9 +394,7 @@ class CheckMakeTop:
             logging.info('A Ligand Topology file was defined. Using MT approach...')
             logging.info('Building AMBER Ligand Topology from GROMACS Ligand Topology...')
             lig_top = self.cleantop(self.FILES.ligand_top, self.indexes[1])
-            # parmed.gromacs.GromacsTopologyFile(self.complex_temp_top,xyz=self.complex_str_file)
             lig_top.coordinates = self.ligand_str.coordinates
-            # lig_top = parmed.gromacs.GromacsTopologyFile(self.ligand_temp_top, xyz=self.ligand_str_file)
             if lig_top.impropers or lig_top.urey_bradleys or lig_top.cmaps:
                 if com_top_parm == 'amber':
                     GMXMMPBSA_ERROR('Inconsistent parameter format. The defined Complex is AMBER type while the '
@@ -439,21 +436,13 @@ class CheckMakeTop:
                                                                                   else self.receptor_pmrtop),
                     ligand_prmtop=(self.mutant_ligand_pmrtop.format(f"_{labels[1]}{labels[2]}") if part_mut == 'LIG'
                                                                                   else self.ligand_pmrtop))
-
-
-
-                # com_mut_index, part_mut, part_index, self.mut_label = self.getMutationInfo()
-                # mut_com_amb_prm = self.makeMutTop(com_amb_prm, com_mut_index)
                 # change de PBRadii
                 action = ChRad(mut_com_amb_prm, PBRadii[self.INPUT['PBRadii']])
                 mut_com_amb_prm.write_parm(self.mutant_info[f'{labels[1]}{labels[2]}'].complex_prmtop)
-                out_prmtop = None
                 if part_mut == 'REC':
                     logging.info(f"Detecting mutation ({labels[1]}{labels[2]}) in Receptor. Building "
                                  f"Mutant Receptor Topology...")
-                    # mut_com_amb_prm.strip(f'!:{rec_indexes_string}')
                     out_prmtop = self.mutant_info[f'{labels[1]}{labels[2]}'].receptor_prmtop
-                    # self.mutant_ligand_pmrtop = None
                     if rec_hastop:
                         mtop = self.makeMutTop(rec_amb_prm, part_index)
                     else:
@@ -463,7 +452,6 @@ class CheckMakeTop:
                     logging.info(f'Detecting mutation ({labels[1]}{labels[2]}) in Ligand. Building '
                                  f'Mutant Ligand Topology...')
                     out_prmtop = self.mutant_info[f'{labels[1]}{labels[2]}'].ligand_prmtop
-                    # self.mutant_receptor_pmrtop = None
                     if lig_hastop:
                         mtop = self.makeMutTop(lig_amb_prm, part_index)
                     else:
@@ -477,11 +465,17 @@ class CheckMakeTop:
                 # change de PBRadii
                 action = ChRad(mut_prot_amb_prm, PBRadii[self.INPUT['PBRadii']])
                 mut_prot_amb_prm.write_parm(out_prmtop)
-        else:
-            self.mutant_complex_pmrtop = None
 
-        return (self.complex_pmrtop, self.receptor_pmrtop, self.ligand_pmrtop, self.mutant_complex_pmrtop,
-                self.mutant_receptor_pmrtop, self.mutant_ligand_pmrtop)
+        com_prmtops = []
+        rec_prmtops = []
+        lig_prmtops = []
+        for x in self.mutant_info:
+            com_prmtops.append(self.mutant_info[x].complex_prmtop)
+            rec_prmtops.append(self.mutant_info[x].receptor_prmtop)
+            lig_prmtops.append(self.mutant_info[x].ligand_prmtop)
+
+        return (self.complex_pmrtop, self.receptor_pmrtop, self.ligand_pmrtop, com_prmtops, rec_prmtops,
+                lig_prmtops, self.mutant_info)
 
     def _split_str(self, start, r, c, basename, struct, mut_index=0):
         end = start + (r[1] - r[0])
@@ -494,7 +488,6 @@ class CheckMakeTop:
         str_file = self.FILES.prefix + f'{basename}_F{c}.pdb'
         str_.save(str_file, 'pdb', True, renumber=False)
         return end, str_file
-
 
     def pdb2prmtop(self):
         """
@@ -515,31 +508,12 @@ class CheckMakeTop:
             self.receptor_info[f'REC{c}'] = sfile
             start += end
 
-            # end = start + (r[1] - r[0])
-            # mask = f'!:{start}-{end}'
-            # start += end
-            # rec = self.molstr(self.receptor_str)
-            # rec.strip(mask)
-            # rec_file = self.FILES.prefix + f'REC_F{c}.pdb'
-            # rec.save(rec_file, 'pdb', True, renumber=False)
-            # self.receptor_info[f'REC{c}'] = rec_file
-            # c += 1
-
         self.ligand_info = {}
         start = 1
         for c, r in enumerate(self.resi['LIG']['num'], start=1):
             end, sfile = self._split_str(start, r, c, 'LIG', self.ligand_str)
             self.ligand_info[f'LIG{c}'] = sfile
             start += end
-            # end = start + (r[1] - r[0])
-            # mask = f'!:{start}-{end}'
-            # start += end
-            # lig = self.molstr(self.ligand_str)
-            # lig.strip(mask)
-            # lig_file = self.FILES.prefix + f'LIG_F{c}.pdb'
-            # lig.save(lig_file, 'pdb', True, renumber=False)
-            # self.ligand_info[f'LIG{c}'] = lig_file
-            # c += 1
 
         if self.INPUT['alarun']:
             logging.info('Building Mutants Complex Topology...')
@@ -558,7 +532,6 @@ class CheckMakeTop:
                                 else self.receptor_pmrtop),
                     ligand_prmtop=(self.mutant_ligand_pmrtop.format(f"_{labels[1]}{labels[2]}") if part_mut == 'LIG'
                                 else self.ligand_pmrtop))
-                # com_mut_index, part_mut, part_index, self.mut_label = self.getMutationInfo()
                 start = 1
                 if part_mut == 'REC':
                     logging.info(f"Detecting mutation ({labels[1]}{labels[2]}) in Receptor. Building "
@@ -568,42 +541,14 @@ class CheckMakeTop:
                                                      self.receptor_str, part_index)
                         self.mutant_info[f'{labels[1]}{labels[2]}'].rec_frags.append(sfile)
                         start += end
-
-                        # end = start + (r[1] - r[0])
-                        # mask = f'!:{start}-{end}'
-                        # start += end
-                        # rec = self.molstr(self.receptor_str)
-                        # mut_rec = self.makeMutTop(rec, part_index, True)
-                        # mut_rec.strip(mask)
-
-                        # mut_rec_file = self.FILES.prefix + f"MUT_{labels[1]}{labels[2]}_REC_F{c}.pdb"
-                        # mut_rec.save(mut_rec_file, 'pdb', True, renumber=False)
-                        # self.mutant_info[f'{labels[1]}{labels[2]}'].rec_frags.append(mut_rec_file)
-                        # mut_receptor_list[f"MREC{mut_labellist[1]}{mut_labellist[2]}_{c}"] = mut_rec_file
-                        # c += 1
-                    # self.mutant_info['mut_rec'].append(mut_receptor_list)
                 else:
                     logging.info(f'Detecting mutation ({labels[1]}{labels[2]}) in Ligand. Building '
                                  'Mutant Ligand Structure...')
-                    # self.mutant_info['loc'].append('LIG')
                     for c, r in enumerate(self.resi['LIG']['num']):
                         end, sfile = self._split_str(start, r, c, f'MUT_{labels[1]}{labels[2]}_LIG', self.ligand_str,
                                                      part_index)
                         self.mutant_info[f'{labels[1]}{labels[2]}'].lig_frags.append(sfile)
                         start += end
-
-                        # end = start + (r[1] - r[0])
-                        # mask = f'!:{start}-{end}'
-                        # start += end
-                        # lig = self.molstr(self.ligand_str)
-                        # mut_lig = self.makeMutTop(lig, part_index, True)
-                        # mut_lig.strip(mask)
-                        #
-                        # mut_lig_file = self.FILES.prefix + f"MUT_{labels[1]}{labels[2]}_LIG_F{c}.pdb"
-                        # mut_lig.save(mut_lig_file, 'pdb', True, renumber=False)
-                        # self.mutant_info[f'{labels[1]}{labels[2]}'].lig_frags.append(mut_lig_file)
-                        # c += 1
-                    # self.mutant_info['mut_lig'].append(mut_ligand_info)
 
     @staticmethod
     def cleantop(top_file, ndx):
@@ -717,7 +662,6 @@ class CheckMakeTop:
                 else:
                     ndx[header].extend(map(int, line.split()))
         com_str = self.complex_str
-        order_list = []
 
         masks = {'REC': [], 'LIG': []}
         res_list = {'REC': [], 'LIG': []}
@@ -737,9 +681,8 @@ class CheckMakeTop:
                                                    com_str.atoms[i].residue.insertion_code))
                     resindex += 1
                     proc_res = res
-            else:
-                # save residue number in the lig list
-                if res != proc_res and resindex not in res_list['LIG']:
+            # save residue number in the lig list
+            elif res != proc_res and resindex not in res_list['LIG']:
                     res_list['LIG'].append(Residue(resindex, com_str.atoms[i].residue.number,
                                                    com_str.atoms[i].residue.chain, 'LIG', com_str.atoms[i].residue.name,
                                                    com_str.atoms[i].residue.insertion_code))
@@ -750,16 +693,12 @@ class CheckMakeTop:
         masks['LIG'] = list2range(res_list['LIG'])
 
         temp = []
-        for m in masks:
-            for e in masks[m]['num']:
-                if isinstance(e, list):
-                    v = e[0]
-                else:
-                    v = e
+        for m, value in masks.items():
+            for e in value['num']:
+                v = e[0] if isinstance(e, list) else e
                 temp.append([v, m])
         temp.sort(key=lambda x: x[0])
-        for c in temp:
-            order_list.append(c[1])
+        order_list = [c[1] for c in temp]
 
         return masks, res_list, order_list, [ndx['GMXMMPBSA_REC'], ndx['GMXMMPBSA_LIG']]
 
@@ -767,10 +706,6 @@ class CheckMakeTop:
 
         for residue in structure.residues:
             # change atoms name from GROMACS to AMBER
-            if residue.name == 'ILE':
-                for atom in residue.atoms:
-                    if atom.name == 'CD':
-                        atom.name = 'CD1'
             for atom in residue.atoms:
                 if atom.name == 'OC1':
                     atom.name = 'O'
@@ -778,7 +713,12 @@ class CheckMakeTop:
                     atom.name = 'OXT'
                     residue.ter = True  # parmed terminal
             # change residues name according to AMBER
-            if residue.name == 'LYS':
+            if residue.name == 'ILE':
+                for atom in residue.atoms:
+                    if atom.name == 'CD':
+                        atom.name = 'CD1'
+                        break
+            elif residue.name == 'LYS':
                 atoms = [atom.name for atom in residue.atoms]
                 if 'HZ3' not in atoms:
                     residue.name = 'LYN'
@@ -820,11 +760,8 @@ class CheckMakeTop:
             structure.strip('@/H')
 
     def getMutationInfo(self):
-        labels = []
-        icode_ = ''
         if not self.INPUT['mutant_res']:
             GMXMMPBSA_ERROR("No residue for mutation was defined")
-
         # dict = { resind: [chain, resnum, icode]
         sele_res_dict = self.get_selected_residues(self.INPUT['mutant_res'])
 
@@ -834,8 +771,6 @@ class CheckMakeTop:
             if not parmed.residue.AminoAcidResidue.has(res.name):
                 GMXMMPBSA_WARNING(f"Selecting residue {res.chain}:{res.name}:{res.number} can't be mutated and will "
                                   f"be ignored...")
-            # label = (f"{res.name}[{res.chain}:{res.number}:{res.insertion_code}]{self.INPUT['mutant']}" if
-            #          res.insertion_code else f"{res.name}[{res.chain}:{res.number}]{self.INPUT['mutant']}")
             label_list = ([res.name, res.chain, str(res.number), res.insertion_code] if res.insertion_code
                           else [res.name, res.chain, str(res.number)])
 
@@ -973,7 +908,6 @@ class CheckMakeTop:
                                           f"default indi will be used")
 
         mut_top.residues[mut_index].name = mut_aa
-        ind = 0
         for at in mut_top.residues[mut_index].atoms:
             if mut_aa == 'GlY':
                 if at.name == 'CA':
@@ -1008,7 +942,6 @@ class CheckMakeTop:
                 elif at.name in ['HB1', 'HB2', 'HB3']:
                     at.type = h_atoms_prop['type']
                     at.atom_type = h_atoms_prop['atom_type']
-            ind += 1
         return mut_top
 
     def cleanup_trajs(self):
@@ -1274,27 +1207,15 @@ class CheckMakeTop:
                             REC.append(f'{mut}_MREC{d}')
                             mtif.write(f"{mut}_MREC{d} = loadpdb {mrec}\n")
                         mrec_out = ' '.join(REC)
-                # if self.mutant_receptor_pmrtop:
-                #     REC = []
-                #     for mrec in self.mut_receptor_list:
-                #         REC.append(f'{mrec}')
-                #         mtif.write(f'{mrec} = loadpdb {self.mut_receptor_list[mrec]}\n')
-                #     mrec_out = ' '.join(REC)
-
                         if not self.FILES.stability:
                             mtif.write(f'{mut}_MREC_OUT{c} = combine {{ {mrec_out} }}\n')
                             mtif.write(f"saveamberparm {mut}_MREC_OUT{c} "
                                        f"{self.mutant_info[mut].receptor_prmtop} "
                                        f"{self.FILES.prefix}MUT_REC_{mut}.inpcrd\n")
-                        # else:
-                        #     self.mutant_info['prmtop'].append(None)
                         # check if ligand is not protein and always load
                         if self.FILES.ligand_mol2:
                             mtif.write('LIG1 = loadmol2 {}\n'.format(self.FILES.ligand_mol2))
-                            # self.mutant_ligand_pmrtop = None
                             if not self.FILES.stability:
-                                # self.mutant_ligand_pmrtop = None
-                            # else:
                                 mtif.write(f'loadamberparams {self.ligand_frcmod}\n')
                                 mtif.write('check LIG1\n')
 
@@ -1303,23 +1224,12 @@ class CheckMakeTop:
                                 mtif.write(f'{lig} = loadpdb {self.ligand_info[lig]}\n')
                     else:
                         LIG = []
-                        # for d, mrec in enumerate(self.mutant_info[mut].rec_frags, start=1):
-                        #     REC.append(f'{mut}_MREC{d}')
-                        #     mtif.write(f"{mut}_MREC{d} = loadpdb {mrec}\n")
-                        # mrec_out = ' '.join(REC)
                         for d, mlig in enumerate(self.mutant_info[mut].lig_frags, start=1):
                             LIG.append(f'{mut}_MLIG{d}')
                             mtif.write(f"{mut}_MLIG{d} = loadpdb {mlig}\n")
                         mlig_out = ' '.join(LIG)
 
-                        # for mlig in self.mutant_info:
-                        #     LIG.append(f'{mlig}')
-                        #     mtif.write(f'{mlig} = loadpdb {self.mut_ligand_info[mlig]}\n')
-                        # mlig_out = ' '.join(LIG)
-
                         if not self.FILES.stability:
-                            # self.mutant_ligand_pmrtop = None
-                        # else:
                             mtif.write(f'MLIG_OUT = combine {{ {mlig_out} }}\n')
                             mtif.write(f'saveamberparm MLIG_OUT {self.mutant_info[mut].ligand_prmtop} '
                                        f'{self.FILES.prefix}MUT_LIG.inpcrd\n')
@@ -1334,8 +1244,6 @@ class CheckMakeTop:
                 mtif.write('quit')
 
             self._run_tleap(tleap, 'mut_leap.in', data_path)
-        # else:
-        #     self.mutant_complex_pmrtop = None
 
         com_prmtops = []
         rec_prmtops = []
