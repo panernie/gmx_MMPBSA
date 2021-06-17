@@ -214,10 +214,9 @@ class MMPBSA_App(object):
 
         self.sync_mpi()
 
-        if master: self.timer.stop_timer('calc')
-
-        # Write out the info file now
         if master:
+            self.timer.stop_timer('calc')
+            # Write out the info file now
             info = InfoFile(self)
             info.write_info(self.pre + 'info')
 
@@ -311,8 +310,7 @@ class MMPBSA_App(object):
             except TypeError:
                 mdin = mdin_template
 
-            self.calc_list.append(PrintCalc(f"\nBeginning GB calculations with {progs['gb']}"),
-                                  timer_key='gb')
+            self.calc_list.append(PrintCalc(f"\nBeginning GB calculations with {progs['gb']}"), timer_key='gb')
 
             c = EnergyCalculation(progs['gb'], parm_system.complex_prmtop,
                                   incrd % 'complex',
@@ -341,9 +339,6 @@ class MMPBSA_App(object):
                         '  no mutation found in receptor; using unmutated files',
                         mut_label,
                         f'%sreceptor_%s_surf%s.dat.%%d')
-                    # c = SAClass(parm_system.receptor_prmtop,
-                    #             f'{prefix}receptor{mut_label}.{trj_sfx}.%d',
-                    #             f'{prefix}receptor_gb_surf{mut_label}.dat.%d')
                 else:
                     c = EnergyCalculation(progs['gb'], parm_system.receptor_prmtop,
                                           incrd % 'receptor',
@@ -351,9 +346,6 @@ class MMPBSA_App(object):
                                           mdin, f'{prefix}receptor_gb{mut_label}.mdout.%d',
                                           self.pre + f'restrt{mut_label}.%d')
                     self.calc_list.append(c, '  calculating receptor contribution...', timer_key='gb')
-                    # c = SAClass(parm_system.receptor_prmtop,
-                    #             f'{prefix}receptor.{trj_sfx}.%d',
-                    #             f'{prefix}receptor_gb_surf.dat.%d')
                 c = SAClass(parm_system.receptor_prmtop,
                             f'{prefix}receptor{mut_label}.{trj_sfx}.%d',
                             f'{prefix}receptor_gb_surf{mut_label}.dat.%d')
@@ -374,9 +366,6 @@ class MMPBSA_App(object):
                         '  no mutation found in ligand; using unmutated files',
                         mut_label,
                         f'%sligand_%s_surf%s.dat.%%d')
-                    # c = SAClass(parm_system.ligand_prmtop,
-                    #             f'{prefix}ligand{mut_label}.{trj_sfx}.%d',
-                    #             f'{prefix}ligand_gb_surf{mut_label}.dat.%d')
                 else:
                     c = EnergyCalculation(progs['gb'], parm_system.ligand_prmtop,
                                           incrd % 'ligand',
@@ -384,10 +373,6 @@ class MMPBSA_App(object):
                                           mdin, f'{prefix}ligand_gb{mut_label}.mdout.%d',
                                           self.pre + f'restrt{mut_label}.%d')
                     self.calc_list.append(c, '  calculating ligand contribution...', timer_key='gb')
-
-                    # c = SAClass(parm_system.ligand_prmtop,
-                    #             f'{prefix}ligand.{trj_sfx}.%d',
-                    #             f'{prefix}ligand_gb_surf.dat.%d')
                 c = SAClass(parm_system.ligand_prmtop,
                             f'{prefix}ligand{mut_label}.{trj_sfx}.%d',
                             f'{prefix}ligand_gb_surf{mut_label}.dat.%d')
@@ -441,10 +426,6 @@ class MMPBSA_App(object):
                         prefix,
                         '  no mutation found in receptor; using unmutated files',
                         mut_label)
-                    # c = CopyCalc('%sreceptor_pb.mdout.%%d' % self.pre,
-                    #              '%sreceptor_pb.mdout.%%d' % prefix)
-                    # self.calc_list.append(c, '  no mutation found in receptor; '
-                    #                          'using unmutated files', timer_key='pb')
                 else:
                     c = PBEnergyCalculation(progs['pb'], parm_system.receptor_prmtop,
                                             incrd % 'receptor',
@@ -467,10 +448,6 @@ class MMPBSA_App(object):
                         prefix,
                         '  no mutation found in ligand; using unmutated files',
                         mut_label)
-
-                    # c = CopyCalc('%sligand_pb.mdout.%%d' % self.pre,
-                    #              '%sligand_pb.mdout.%%d' % prefix)
-                    # self.calc_list.append(c, '  no mutation found in ligand; using unmutated files', timer_key='pb')
                 else:
                     c = PBEnergyCalculation(progs['pb'], parm_system.ligand_prmtop,
                                             incrd % 'ligand',
@@ -500,11 +477,6 @@ class MMPBSA_App(object):
                         prefix,
                         '  no mutation found in receptor; using unmutated files',
                         mut_label)
-
-                    # c = CopyCalc('%sreceptor_rism.mdout.%%d' % self.pre,
-                    #              '%sreceptor_rism.mdout.%%d' % prefix)
-                    # self.calc_list.append(c, '  no mutation found in receptor; '
-                    #                          'using unmutated files', timer_key='pb')
                 else:
                     c = RISMCalculation(progs['rism'], parm_system.receptor_prmtop,
                                         f'{prefix}receptor{mut_label}.pdb',
@@ -521,11 +493,6 @@ class MMPBSA_App(object):
                         prefix,
                         '  no mutation found in ligand; using unmutated files',
                         mut_label)
-
-                    # c = CopyCalc('%sligand_rism.mdout.%%d' % self.pre,
-                    #              '%sligand_rism.mdout.%%d' % prefix)
-                    # self.calc_list.append(c, '  no mutation found in ligand; '
-                    #                          'using unmutated files', timer_key='pb')
                 else:
                     c = RISMCalculation(progs['rism'], parm_system.ligand_prmtop,
                                         f'{prefix}ligand{mut_label}.pdb',
@@ -556,10 +523,6 @@ class MMPBSA_App(object):
                         prefix,
                         '  no mutation found in receptor; using unmutated files',
                         mut_label)
-                    # c = CopyCalc('%sreceptor_nm.out.%%d' % self.pre,
-                    #              '%sreceptor_nm.out.%%d' % prefix)
-                    # self.calc_list.append(c, '  no mutation found in receptor; '
-                    #                          'using unmutated files', timer_key='pb')
                 else:
                     c = NmodeCalc(progs['nmode'], parm_system.receptor_prmtop,
                                   f'{prefix}receptor{mut_label}.pdb',
@@ -574,10 +537,6 @@ class MMPBSA_App(object):
                         prefix,
                         '  no mutation found in ligand; using unmutated files',
                         mut_label)
-                    # c = CopyCalc('%sligand_nm.out.%%d' % self.pre,
-                    #              '%sligand_nm.out.%%d' % prefix)
-                    # self.calc_list.append(c, '  no mutation found in ligand; '
-                    #                          'using unmutated files', timer_key='pb')
                 else:
                     c = NmodeCalc(progs['nmode'], parm_system.ligand_prmtop,
                                   f'{prefix}ligand{mut_label}.pdb',
@@ -615,10 +574,11 @@ class MMPBSA_App(object):
         self.timer.add_timer('setup_gmx', 'Total GROMACS setup time:')
         self.timer.start_timer('setup_gmx')
         # Now we're getting ready, remove existing intermediate files
-        if self.master and self.FILES.use_mdins:
-            self.remove(-1)
-        elif self.master and not self.FILES.rewrite_output:
-            self.remove(0)
+        if self.master:
+            if self.FILES.use_mdins:
+                self.remove(-1)
+            elif not self.FILES.rewrite_output:
+                self.remove(0)
 
         # Find external programs IFF we are doing a calc
         if not self.FILES.make_mdins:
@@ -660,23 +620,7 @@ class MMPBSA_App(object):
         self.normal_system = MMPBSA_System(FILES.complex_prmtop, FILES.receptor_prmtop, FILES.ligand_prmtop)
         self.using_chamber = self.normal_system.complex_prmtop.chamber
         if INPUT['alarun']:
-            # if (FILES.mutant_receptor_prmtop is None and FILES.mutant_ligand_prmtop is None and not self.stability):
-            #     GMXMMPBSA_ERROR('Alanine scanning requires either a mutated receptor or mutated ligand topology '
-            #                        'file!')
             for mut_sys in self.mutant_info:
-                print(mut_sys, self.mutant_info[mut_sys].ligand_prmtop)
-                # if self.mutant_info[mut_sys].receptor_prmtop is None:
-                #     self.mutant_info[mut_sys].receptor_prmtop = FILES.receptor_prmtop
-                # elif self.mutant_info[mut_sys].ligand_prmtop is None:
-                #     self.mutant_info[mut_sys].ligand_prmtop = FILES.ligand_prmtop
-            # if FILES.mutant_receptor_prmtop is None:
-            #     FILES.mutant_receptor_prmtop = FILES.receptor_prmtop
-            # elif FILES.mutant_ligand_prmtop is None:
-            #     FILES.mutant_ligand_prmtop = FILES.ligand_prmtop
-            #     print(mut_sys, self.mutant_info[mut_sys].receptor_prmtop)
-            #     print(mut_sys, self.mutant_info[mut_sys].ligand_prmtop, type(self.mutant_info[mut_sys].ligand_prmtop),
-            #           type(FILES.ligand_prmtop), FILES.ligand_prmtop)
-
                 self.mutant_system[mut_sys] = SimpleNamespace(info=self.mutant_info[mut_sys],
                                                               system=MMPBSA_System(
                                                                   self.mutant_info[mut_sys].complex_prmtop,
@@ -699,9 +643,6 @@ class MMPBSA_App(object):
             for mut_sys in self.mutant_system:
                 self.mutant_system[mut_sys].system.Map(INPUT['receptor_mask'], INPUT['ligand_mask'])
                 self.mutant_system[mut_sys].system.CheckConsistency()
-        if (INPUT['ligand_mask'] is None or INPUT['receptor_mask'] is None):
-            com_mask, INPUT['receptor_mask'], INPUT['ligand_mask'] = \
-                self.normal_system.Mask('all', in_complex=True)
         self.sync_mpi()
         self.timer.stop_timer('setup')
 
@@ -885,28 +826,25 @@ class MMPBSA_App(object):
         """ Checks for bad user input """
         if INPUT is None:
             INPUT = self.INPUT
-
+        if not self.master:
+            return
         # Check deprecated variables
         # check force fields
         if self.INPUT['protein_forcefield'] or self.INPUT['ligand_forcefield']:
-            if self.master:
-                GMXMMPBSA_WARNING(
-                    'protein_forcefield and ligand_forcefield variables are deprecate since version 1.4.1 '
-                    'and will be remove in the next version. Please, use forcefield instead.')
+            GMXMMPBSA_WARNING('protein_forcefield and ligand_forcefield variables are deprecate since version 1.4.1 '
+                              'and will be remove in the next version. Please, use forcefield instead.')
         if self.INPUT['entropy']:
-            if self.master:
-                GMXMMPBSA_WARNING('entropy variable is deprecate since version 1.4.2 and will be remove in v1.5.0. '
-                                  'Please, use qh_entropy for Quasi-Harmonic approximation and i_entropy for '
-                                  'Interaction entropy approximation instead.')
+            GMXMMPBSA_WARNING('entropy variable is deprecate since version 1.4.2 and will be remove in v1.5.0. '
+                              'Please, use qh_entropy for Quasi-Harmonic approximation and i_entropy for '
+                              'Interaction entropy approximation instead.')
             if self.INPUT['entropy'] == 1:
                 self.INPUT['qh_entropy'] = 1
             elif self.INPUT['entropy'] == 2:
                 self.INPUT['interaction_entropy'] = 1
 
         if self.INPUT['entropy_seg']:
-            if self.master:
-                GMXMMPBSA_WARNING('entropy_seg variable is deprecate since version 1.4.2 and will be remove in v1.5.0. '
-                                  'Please, use ie_segment instead.')
+            GMXMMPBSA_WARNING('entropy_seg variable is deprecate since version 1.4.2 and will be remove in v1.5.0. '
+                              'Please, use ie_segment instead.')
             self.INPUT['ie_segment'] = self.INPUT['entropy_seg']
 
         if self.INPUT['entropy_temp'] != 298.15:
@@ -916,8 +854,8 @@ class MMPBSA_App(object):
                     self.INPUT['temperature'] = self.INPUT['entropy_temp']
             except:
                 self.INPUT['temperature'] = self.INPUT['entropy_temp']
-            if self.master:
-                GMXMMPBSA_WARNING('entropy_temp variable is deprecated and will be remove in next versions!. Please, '
+
+            GMXMMPBSA_WARNING('entropy_temp variable is deprecated and will be remove in next versions!. Please, '
                               'use temperature variable instead')
 
         if not INPUT['igb'] in [1, 2, 5, 7, 8]:
@@ -1023,8 +961,7 @@ class MMPBSA_App(object):
 
         # User warning when intdiel > 10
         if self.INPUT['intdiel'] > 10:
-            if self.master:
-                logging.warning('Intdiel should be less than 10, but it is {}'.format(self.INPUT['intdiel']))
+            GMXMMPBSA_WARNING('Intdiel should be less than 10, but it is {}'.format(self.INPUT['intdiel']))
         # check mutant definition
         if not self.INPUT['mutant'].upper() in ['ALA', 'A', 'GLY', 'G']:
             GMXMMPBSA_ERROR('The mutant most be ALA (or A) or GLY (or G)', InputError)
@@ -1091,7 +1028,8 @@ class MMPBSA_App(object):
                 self.calc_types['qh'] = QHout(self.pre + 'cpptraj_entropy.out', INPUT['temp'])
             if INPUT['alarun']:
                 for mut_sys in self.mutant_info:
-                    self.calc_types.mutants[mut_sys]['qh'] = QHout(self.pre + 'mutant_cpptraj_entropy.out', INPUT['temp'])
+                    self.calc_types.mutants[mut_sys]['qh'] = QHout(self.pre + f'mutant_cpptraj_entropy_{mut_sys}.out',
+                                                                   INPUT['temp'])
         # Set BindingClass based on whether it's a single or multiple trajectory
         # analysis
         if self.traj_protocol == 'STP':
