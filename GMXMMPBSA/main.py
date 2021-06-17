@@ -597,6 +597,7 @@ class MMPBSA_App(object):
              self.mutant_info) = maketop.buildTopology()
             logging.info('Building AMBER Topologies from GROMACS files...Done.\n')
             self.INPUT['receptor_mask'], self.INPUT['ligand_mask'] = maketop.get_masks()
+            self.INPUT['mutants_labels'] = list(self.mutant_info.keys())
             self.mut_str = maketop.mut_label
             self.FILES.complex_fixed = self.FILES.prefix + 'COM_FIXED.pdb'
 
@@ -1007,7 +1008,7 @@ class MMPBSA_App(object):
         if 'qh_entropy' not in self.INPUT:
             self.INPUT['qh_entropy'] = 0
         if 'interaction_entropy' not in self.INPUT:
-                self.INPUT['interaction_entropy'] = 0
+            self.INPUT['interaction_entropy'] = 0
         if self.INPUT['entropy_seg']:
             self.INPUT['ie_segment'] = self.INPUT['entropy_seg']
         if self.INPUT['entropy_temp'] != 298.15:
@@ -1020,14 +1021,14 @@ class MMPBSA_App(object):
         INPUT, FILES = self.INPUT, self.FILES
         # Mutant will also be a dict
         if INPUT['alarun']:
-            for mut_sys in self.mutant_info:
+            for mut_sys in self.INPUT['mutants_labels']:
                 self.calc_types.mutants[mut_sys] = {}
         # Quasi-harmonic analysis is a special-case, so handle that separately
         if INPUT['qh_entropy']:
             if not INPUT['mutant_only']:
                 self.calc_types['qh'] = QHout(self.pre + 'cpptraj_entropy.out', INPUT['temp'])
             if INPUT['alarun']:
-                for mut_sys in self.mutant_info:
+                for mut_sys in self.INPUT['mutants_labels']:
                     self.calc_types.mutants[mut_sys]['qh'] = QHout(self.pre + f'mutant_cpptraj_entropy_{mut_sys}.out',
                                                                    INPUT['temp'])
         # Set BindingClass based on whether it's a single or multiple trajectory
@@ -1085,10 +1086,7 @@ class MMPBSA_App(object):
                     self.calc_types[key]['complex'].fill_composite_terms()
             # Time for mutant
             if INPUT['alarun']:
-                for mut_sys in self.mutant_info:
-
-                    print(self.pre + 'mutant_' + basename_mut[i] % ('complex', mut_sys), self.INPUT,
-                                      self.mpi_size, self.using_chamber)
+                for mut_sys in self.INPUT['mutants_labels']:
                     self.calc_types.mutants[mut_sys][key] = {'complex': outclass[i](self.pre + 'mutant_' +
                                                                                     basename_mut[i] % ('complex', mut_sys),
                                                                                     self.INPUT, self.mpi_size,
@@ -1112,7 +1110,6 @@ class MMPBSA_App(object):
                             self.calc_types.mutants[mut_sys]['ie'] = IEout(mie.data, mie.iedata, mie.frames, mie.ieframes)
                     else:
                         self.calc_types.mutants[mut_sys][key]['complex'].fill_composite_terms()
-
 
 # Local methods
 
