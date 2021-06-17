@@ -50,76 +50,93 @@ class mmpbsa_data(dict):
         if not hasattr(app, 'calc_types'):
             raise SetupError('Output files have not yet been parsed!')
         # Now load the data into the dict
+        self.mutants = {}
         has_mutant = False
         # See if we are doing stability
         self.stability = app.stability
         # Now load the data
         for key in app.calc_types:
-            if key == 'mutant' or key == 'qh':
-                has_mutant = True
+            if key in ['qh']:
                 continue
             self[key] = {}
-            tmpdict = {}
             if key == 'ie':
                 if not self.stability:
                     self[key] = {'data': app.calc_types[key].data['data'], 'value': app.calc_types[key].data[
                         'iedata'].avg(), 'frames': [app.calc_types[key].data['frames'][-app.calc_types[
                         key].data['ieframes']], app.calc_types[key].data['frames'][-1]]}
                 continue
-            for dkey in app.calc_types[key]['complex'].data:
-                tmpdict[dkey] = make_array(app.calc_types[key]['complex'].data[dkey])
+            tmpdict = {dkey: make_array(app.calc_types[key]['complex'].data[dkey])
+                        for dkey in app.calc_types[key]['complex'].data}
             self[key]['complex'] = tmpdict
             if not self.stability:
-                tmpdict = {}
-                for dkey in app.calc_types[key]['receptor'].data:
-                    tmpdict[dkey] = make_array(app.calc_types[key]['receptor'].data[dkey])
+                tmpdict = { dkey: make_array(app.calc_types[key]['receptor'].data[dkey])
+                            for dkey in app.calc_types[key]['receptor'].data}
                 self[key]['receptor'] = tmpdict
-                tmpdict = {}
-                for dkey in app.calc_types[key]['ligand'].data:
-                    tmpdict[dkey] = make_array(app.calc_types[key]['ligand'].data[dkey])
+                tmpdict = {dkey: make_array(app.calc_types[key]['ligand'].data[dkey])
+                           for dkey in app.calc_types[key]['ligand'].data}
                 self[key]['ligand'] = tmpdict
-                tmpdict = {}
-                for dkey in app.calc_types[key]['delta'].data:
-                    tmpdict[dkey] = make_array(app.calc_types[key]['delta'].data[dkey])
+                tmpdict = {dkey: make_array(app.calc_types[key]['delta'].data[dkey])
+                           for dkey in app.calc_types[key]['delta'].data}
                 self[key]['delta'] = tmpdict
 
         # Are we doing a mutant?
-        if has_mutant:
-            self.mutant = {}
-            for key in app.calc_types['mutant']:
-                if key == 'qh': continue
-                self.mutant[key] = {}
-                tmpdict = {}
 
-                if key == 'ie':
+        if app.calc_types.mutants:
+
+            # self.mutant = {}
+            for mut_sys, mutants_items in app.calc_types.mutants.items():
+                # if key == 'qh': continue
+                self.mutants[mut_sys] = {}
+                for key in mutants_items:
+
+                    self.mutants[mut_sys][key] = {}
+                    if key == 'ie':
+                        if not self.stability:
+                            self.mutants[mut_sys][key] = {
+                                'data': app.calc_types.mutants[mut_sys][key].data['data'],
+                                'value': app.calc_types.mutants[mut_sys][key].data['iedata'].avg(),
+                                'frames': [app.calc_types.mutants[mut_sys][key].data['frames'][-app.calc_types.mutants[
+                                            mut_sys][key].data['ieframes']],
+                                           app.calc_types.mutants[mut_sys][key].data['frames'][-1]]}
+                        continue
+
+                    tmpdict = {
+                        dkey: make_array(
+                            app.calc_types.mutants[mut_sys][key]['complex'].data[dkey]
+                        )
+                        for dkey in app.calc_types.mutants[mut_sys][key]['complex'].data
+                    }
+
+
+                    self.mutants[mut_sys][key]['complex'] = tmpdict
                     if not self.stability:
-                        self.mutant[key] = {'data': app.calc_types[key].data['data'],
-                                            'value': app.calc_types[key].data['iedata'].avg(),
-                                            'frames': [app.calc_types[key].data['frames'][-app.calc_types[key].data[
-                                                'ieframes']], app.calc_types[key].data['frames'][-1]]}
-                    continue
+                        self.mutants[mut_sys][key]['receptor'] = {}
+                        tmpdict = {
+                            dkey: make_array(
+                                app.calc_types.mutants[mut_sys][key]['receptor'].data[dkey]
+                            )
+                            for dkey in app.calc_types.mutants[mut_sys][key][
+                                'receptor'
+                            ].data
+                        }
 
-                for dkey in app.calc_types['mutant'][key]['complex'].data:
-                    tmpdict[dkey] = make_array(
-                        app.calc_types['mutant'][key]['complex'].data[dkey])
-                self.mutant[key]['complex'] = tmpdict
-                if not self.stability:
-                    self.mutant[key]['receptor'] = {}
-                    tmpdict = {}
-                    for dkey in app.calc_types['mutant'][key]['receptor'].data:
-                        tmpdict[dkey] = make_array(
-                            app.calc_types['mutant'][key]['receptor'].data[dkey])
-                    self.mutant[key]['receptor'] = tmpdict
-                    tmpdict = {}
-                    for dkey in app.calc_types['mutant'][key]['ligand'].data:
-                        tmpdict[dkey] = make_array(
-                            app.calc_types['mutant'][key]['ligand'].data[dkey])
-                    self.mutant[key]['ligand'] = tmpdict
-                    tmpdict = {}
-                    for dkey in app.calc_types['mutant'][key]['delta'].data:
-                        tmpdict[dkey] = make_array(
-                            app.calc_types['mutant'][key]['delta'].data[dkey])
-                    self.mutant[key]['delta'] = tmpdict
+                        self.mutants[mut_sys][key]['receptor'] = tmpdict
+                        tmpdict = {
+                            dkey: make_array(
+                                app.calc_types.mutants[mut_sys][key]['ligand'].data[dkey]
+                            )
+                            for dkey in app.calc_types.mutants[mut_sys][key]['ligand'].data
+                        }
+
+                        self.mutants[mut_sys][key]['ligand'] = tmpdict
+                        tmpdict = {
+                            dkey: make_array(
+                                app.calc_types.mutants[mut_sys][key]['delta'].data[dkey]
+                            )
+                            for dkey in app.calc_types.mutants[mut_sys][key]['delta'].data
+                        }
+
+                        self.mutants[mut_sys][key]['delta'] = tmpdict
 
 
     def __iadd__(self, other):
@@ -131,8 +148,7 @@ class mmpbsa_data(dict):
 
     def _add_numpy(self, other):
         """
-        If we have numpy available, we need to extend every array in a numpy-valid
-        way
+        If we have numpy available, we need to extend every array in a numpy-valid way
         """
         used_keys = []
         for key in self:
@@ -156,28 +172,34 @@ class mmpbsa_data(dict):
             self[key] = deepcopy(other[key])
         # Check mutant statuses. If the other has mutant and I don't, copy other
         # If we both have mutant, combine.  If only I do, already done
-        if self.mutant and not other.mutant:
-            self.mutant = deepcopy(other.mutant)
-        elif self.mutant and other.mutant:
+        if self.mutants and not other.mutants:
+            self.mutants = deepcopy(other.mutants)
+        elif self.mutants:
             used_keys_mutant = []
-            for key in self.mutant:
-                used_keys_mutant.append(key)
-                try:
-                    for dkey in self[key]['complex']:
-                        _combine_np_arrays(self[key]['complex'][dkey],
-                                           other[key]['complex'][dkey])
-                    for dkey in self[key]['receptor']:
-                        _combine_np_arrays(self[key]['receptor'][dkey],
-                                           other[key]['receptor'][dkey])
-                    for dkey in self[key]['ligand']:
-                        _combine_np_arrays(self[key]['ligand'][dkey],
-                                           other[key]['ligand'][dkey])
-                except KeyError:
-                    pass
-            for key in other.mutant:
-                if key in used_keys_mutant:
-                    continue
-                self.mutant[key] = deepcopy(other.mutant[key])
+            for mut_sys, mutants_items in self.mutants.items():
+                for key in mutants_items:
+                    used_keys_mutant.append(key)
+                    try:
+                        for dkey in self[key]['complex']:
+                            _combine_np_arrays(self[key]['complex'][dkey],
+                                               other[key]['complex'][dkey])
+                        for dkey in self[key]['receptor']:
+                            _combine_np_arrays(self[key]['receptor'][dkey],
+                                               other[key]['receptor'][dkey])
+                        for dkey in self[key]['ligand']:
+                            _combine_np_arrays(self[key]['ligand'][dkey],
+                                               other[key]['ligand'][dkey])
+                    except KeyError:
+                        pass
+
+                    # we only need one of all mutants since all are the same structure
+                    break
+
+            for mut_sys, mutants_items in other.mutants.items():
+                for key in mutants_items:
+                    if key in used_keys_mutant:
+                        continue
+                    self.mutants[mut_sys][key] = deepcopy(other.mutants[mut_sys][key])
 
 def _combine_np_arrays(nparray1, nparray2):
     origsize = nparray1.shape[0]
@@ -449,35 +471,16 @@ def load_gmxmmpbsa_info(fname):
 
     com = rec.copy()
     com.update(lig)
-    com_res_info = []
-    for key, value in sorted(com.items()):
-        com_res_info.append(value)
-
-    rec_res_info = []
-    for key, value in rec.items():
-        rec_res_info.append(value)
-
-    lig_res_info = []
-    for key, value in lig.items():
-        lig_res_info.append(value)
-
-
-    mut_com_res_info = []
+    com_res_info = [value for key, value in sorted(com.items())]
+    rec_res_info = [value for key, value in rec.items()]
+    lig_res_info = [value for key, value in lig.items()]
     mut_com = mut_rec.copy()
     mut_com.update(mut_lig)
-    for key, value in sorted(mut_com.items()):
-        mut_com_res_info.append(value)
-
-    mut_rec_res_info = []
-    for key, value in mut_rec.items():
-        mut_rec_res_info.append(value)
-
-    mut_lig_res_info = []
-    for key, value in mut_lig.items():
-        mut_lig_res_info.append(value)
-
+    mut_com_res_info = [value for key, value in sorted(mut_com.items())]
+    mut_rec_res_info = [value for key, value in mut_rec.items()]
+    mut_lig_res_info = [value for key, value in mut_lig.items()]
     if not app.INPUT['alarun']:
-        return_data.mutant = {}
+        return_data.mutants = {}
     if app.INPUT['decomprun']:
         # Simplify the decomp class instance creation
         if app.INPUT['idecomp'] in (1, 2):
@@ -510,32 +513,33 @@ def load_gmxmmpbsa_info(fname):
                                                                         lig_res_info).array_data
                     return_data['decomp']['pb']['delta'] = get_delta_decomp(app, 'pb', return_data['decomp'])
         if app.INPUT['alarun']:
-            # Do mutant GB
-            if app.INPUT['gbrun']:
-                return_data.mutant['decomp'] = {'gb' : {}}
-                return_data.mutant['decomp']['gb']['complex'] = DecompClass(
-                    app.FILES.prefix + 'mutant_complex_gb.mdout', mut_com_res_info).array_data
-                if not app.stability:
-                    return_data.mutant['decomp']['gb']['receptor'] = DecompClass(
-                        app.FILES.prefix + 'mutant_receptor_gb.mdout', mut_rec_res_info).array_data
-                    return_data.mutant['decomp']['gb']['ligand'] = DecompClass(
-                        app.FILES.prefix + 'mutant_ligand_gb.mdout', mut_lig_res_info).array_data
-                    return_data.mutant['decomp']['gb']['delta'] = get_delta_decomp(app, 'gb',
-                                                                                   return_data.mutant['decomp'])
-            # Do mutant PB
-            if app.INPUT['pbrun']:
-                return_data.mutant['decomp'] = {'pb' : {}}
-                return_data.mutant['decomp']['pb']['complex'] = DecompClass(
-                    app.FILES.prefix + 'mutant_complex_pb.mdout', mut_com_res_info).array_data
-                if not app.stability:
-                    return_data.mutant['decomp']['pb']['receptor'] = DecompClass(
-                        app.FILES.prefix + 'mutant_receptor_pb.mdout', mut_rec_res_info).array_data
-                    return_data.mutant['decomp']['pb']['ligand'] = DecompClass(
-                        app.FILES.prefix + 'mutant_ligand_pb.mdout', mut_lig_res_info).array_data
-                    return_data.mutant['decomp']['pb']['delta'] = get_delta_decomp(app, 'pb',
-                                                                                   return_data.mutant['decomp'])
-        else:
-            return_data.mutant = None
+            for mut_sys in app.INPUT['mutants_labels']:
+                # Do mutant GB
+                if app.INPUT['gbrun']:
+
+                    return_data.mutants[mut_sys]['decomp'] = {'gb' : {}}
+                    return_data.mutants[mut_sys]['decomp']['gb']['complex'] = DecompClass(
+                        app.FILES.prefix + f'mutant_complex_gb_{mut_sys}.mdout', mut_com_res_info).array_data
+                    if not app.stability:
+                        return_data.mutants[mut_sys]['decomp']['gb']['receptor'] = DecompClass(
+                            app.FILES.prefix + f'mutant_receptor_gb_{mut_sys}.mdout', mut_rec_res_info).array_data
+                        return_data.mutants[mut_sys]['decomp']['gb']['ligand'] = DecompClass(
+                            app.FILES.prefix + f'mutant_ligand_gb_{mut_sys}.mdout', mut_lig_res_info).array_data
+                        return_data.mutants[mut_sys]['decomp']['gb']['delta'] = get_delta_decomp(
+                            app, 'gb', return_data.mutants[mut_sys]['decomp'])
+                # Do mutant PB
+                if app.INPUT['pbrun']:
+                    return_data.mutants[mut_sys]['decomp'] = {'pb' : {}}
+                    return_data.mutants[mut_sys]['decomp']['pb']['complex'] = DecompClass(
+                        app.FILES.prefix + f'mutant_complex_pb_{mut_sys}.mdout', mut_com_res_info).array_data
+                    if not app.stability:
+                        return_data.mutants[mut_sys]['decomp']['pb']['receptor'] = DecompClass(
+                            app.FILES.prefix + f'mutant_receptor_pb_{mut_sys}.mdout', mut_rec_res_info).array_data
+                        return_data.mutants[mut_sys]['decomp']['pb']['ligand'] = DecompClass(
+                            app.FILES.prefix + f'mutant_ligand_pb_{mut_sys}.mdout', mut_lig_res_info).array_data
+                        return_data.mutants[mut_sys]['decomp']['pb']['delta'] = get_delta_decomp(
+                            app, 'pb', return_data.mutants[mut_sys]['decomp'])
+
 
     app_namespace = SimpleNamespace(FILES=app.FILES, INPUT=app.INPUT, numframes=app.numframes,
                                     numframes_nmode=app.numframes_nmode)
