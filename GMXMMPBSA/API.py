@@ -479,8 +479,8 @@ def load_gmxmmpbsa_info(fname):
     mut_com_res_info = [value for key, value in sorted(mut_com.items())]
     mut_rec_res_info = [value for key, value in mut_rec.items()]
     mut_lig_res_info = [value for key, value in mut_lig.items()]
-    if not app.INPUT['alarun']:
-        return_data.mutants = {}
+    # if not app.INPUT['alarun']:
+    #     return_data.mutants = {}
     if app.INPUT['decomprun']:
         # Simplify the decomp class instance creation
         if app.INPUT['idecomp'] in (1, 2):
