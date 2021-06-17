@@ -120,7 +120,6 @@ class CheckMakeTop:
         else:
             self.pdb2prmtop()
             tops = self.makeToptleap()
-            print(tops)
 
         if self.INPUT['decomprun']:
             self.INPUT['print_res'] = ','.join(str(x) for x in self.get_selected_residues(self.INPUT['print_res']))
