@@ -231,11 +231,9 @@ class APIDecompOut(amber_outputs.DecompOut):
             self.array_data[key] = {}
         for i in range(nframes):
             for key in self.allowed_tokens:
-                for j in range(self.num_terms):
+                for _ in range(self.num_terms):
                     rnum, internal, vdw, eel, pol, sas, tot = self.get_next_term(key)
-                    for c, res_name in enumerate(res_info):
-                        if c + 1 == rnum:
-                            rnum = res_name
+                    rnum = res_info[rnum - 1]
                     if rnum not in self.array_data[key]:
                         self.array_data[key][rnum] = {}
                         for k in ('int', 'vdw', 'eel', 'pol', 'sas', 'tot'):
@@ -265,14 +263,10 @@ class APIPairDecompOut(amber_outputs.PairDecompOut):
 
         for i in range(nframes):
             for key in self.allowed_tokens:
-                for j in range(self.num_terms):
+                for _ in range(self.num_terms):
                     rnum, rnum2, internal, vdw, eel, pol, sas, tot = self.get_next_term(key)
-                    for c, res_name in enumerate(res_info):
-                        if c + 1 == rnum:
-                            rnum = res_name
-                        if c + 1 == rnum2:
-                            rnum2 = res_name
-
+                    rnum = res_info[rnum - 1]
+                    rnum2 = res_info[rnum2 - 1]
                     if rnum not in self.array_data[key]:
                         self.array_data[key][rnum] = {}
                     if rnum2 not in self.array_data[key][rnum]:
