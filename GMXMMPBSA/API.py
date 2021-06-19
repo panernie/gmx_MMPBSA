@@ -247,7 +247,7 @@ class APIDecompOut(amber_outputs.DecompOut):
 
 class APIPairDecompOut(amber_outputs.PairDecompOut):
 
-    def __init__(self, basename, res_info, app): #surften, num_files, verbose, nframes, prmtop):
+    def __init__(self, basename, res_info, app):
 
         surften = app.INPUT['surften']
         num_files = app.mpi_size
@@ -331,7 +331,28 @@ def get_delta_decomp(app, decomp_calc_type, data):
                                 tempdict[p][res][resp][para] = com[p][resp][res][para]
     return tempdict
 
-def load_gmxmmpbsa_info(fname):
+
+def _mask2reslist(mask, com_str, app):
+    mol = {}
+
+    rmstr = app.INPUT[mask].strip(':')
+    ress = []
+    for x in rmstr.split(','):
+        if len(x.split('-')) > 1:
+            start, end = x.split('-')
+            ress.extend(range(int(start), int(end) + 1))
+        else:
+            ress.append(int(x))
+
+    for rn in ress:
+        residue = com_str.residues[rn - 1]
+        icode = ':' + f'{residue.insertion_code}' if f'{residue.insertion_code}' else ''
+        mol[rn] = (f"{residue.chain}:{residue.name}:{residue.number}" + icode)
+
+    return mol
+
+
+def load_gmxmmpbsa_info(fname, make_df=False):
     """
     Loads up an gmx_MMPBSA info file and returns a mmpbsa_data instance with all
     of the data available in numpy arrays if numpy is available. The returned
@@ -409,72 +430,16 @@ def load_gmxmmpbsa_info(fname):
     # Get receptor and ligand masks
     mut_index = None
 
-    rec = {}
-    mut_rec = {}
-    rmstr = app.INPUT['receptor_mask'].strip(':')
-    rml = rmstr.split(',')
-    for x in rml:
-        if len(x.split('-')) > 1:
-            start, end = x.split('-')
-            for i in range(int(start), int(end) + 1):
-                residue = complex_str.residues[i - 1]
-                icode = f'{residue.insertion_code}'
-                if icode:
-                    icode = ':' + icode
-                rec[i] = (f"{residue.chain}:{residue.name}:{residue.number}" + icode)
-                mut_rec[i] = (f"{residue.chain}:{residue.name}:{residue.number}" + icode)
-                if app.INPUT['mutant_res'] == (f"{residue.chain}:{residue.number}" + icode):
-                    mut_rec[i] = (f"{residue.chain}:{app.INPUT['mutant']}:{residue.number}" + icode)
-        else:
-            i = int(x)
-            residue = complex_str.residues[i - 1]
-            icode = f'{residue.insertion_code}'
-            if icode:
-                icode = ':' + icode
-            rec[i] = (f"{residue.chain}:{residue.name}:{residue.number}" + icode)
-            mut_rec[i] = (f"{residue.chain}:{residue.name}:{residue.number}" + icode)
-            if app.INPUT['mutant_res'] == (f"{residue.chain}:{residue.number}" + icode):
-                mut_rec[i] = (f"{residue.chain}:{app.INPUT['mutant']}:{residue.number}" + icode)
+    rec = _mask2reslist('receptor_mask', complex_str, app)
 
-    lig = {}
-    mut_lig = {}
-    lmstr = app.INPUT['ligand_mask'].strip(':')
-    lml = lmstr.split(',')
-    for x in lml:
-        if len(x.split('-')) > 1:
-            start, end = x.split('-')
-            for i in range(int(start), int(end) + 1):
-                residue = complex_str.residues[i - 1]
-                icode = f'{residue.insertion_code}'
-                if icode:
-                    icode = ':' + icode
-                lig[i] = (f"{residue.chain}:{residue.name}:{residue.number}" + icode)
-                mut_lig[i] = (f"{residue.chain}:{residue.name}:{residue.number}" + icode)
-                if app.INPUT['mutant_res'] == (f"{residue.chain}:{residue.number}" + icode):
-                    mut_lig[i] = (f"{residue.chain}:{app.INPUT['mutant']}:{residue.number}" + icode)
-        else:
-            i = int(x)
-            residue = complex_str.residues[i - 1]
-            icode = f'{residue.insertion_code}'
-            if icode:
-                icode = ':' + icode
-            lig[i] = (f"{residue.chain}:{residue.name}:{residue.number}" + icode)
-            mut_lig[i] = (f"{residue.chain}:{residue.name}:{residue.number}" + icode)
-            if app.INPUT['mutant_res'] == (f"{residue.chain}:{residue.number}" + icode):
-                mut_lig[i] = (f"{residue.chain}:{app.INPUT['mutant']}:{residue.number}" + icode)
+    lig = _mask2reslist('ligand_mask', complex_str, app)
 
     com = rec.copy()
     com.update(lig)
     com_res_info = [value for key, value in sorted(com.items())]
     rec_res_info = [value for key, value in rec.items()]
     lig_res_info = [value for key, value in lig.items()]
-    mut_com = mut_rec.copy()
-    mut_com.update(mut_lig)
-    mut_com_res_info = [value for key, value in sorted(mut_com.items())]
-    mut_rec_res_info = [value for key, value in mut_rec.items()]
-    mut_lig_res_info = [value for key, value in mut_lig.items()]
-    # if not app.INPUT['alarun']:
-    #     return_data.mutants = {}
+
     if app.INPUT['decomprun']:
         # Simplify the decomp class instance creation
         if app.INPUT['idecomp'] in (1, 2):
@@ -488,7 +453,6 @@ def load_gmxmmpbsa_info(fname):
                 return_data['decomp'] = {'gb' : {}}
                 return_data['decomp']['gb']['complex'] = DecompClass(app.FILES.prefix + 'complex_gb.mdout',
                                                                      com_res_info).array_data
-
                 if not app.stability:
                     return_data['decomp']['gb']['receptor'] = DecompClass(app.FILES.prefix + 'receptor_gb.mdout',
                                                                           rec_res_info).array_data
