@@ -471,7 +471,32 @@ def load_gmxmmpbsa_info(fname, make_df=False):
                                                                         lig_res_info).array_data
                     return_data['decomp']['pb']['delta'] = get_delta_decomp(app, 'pb', return_data['decomp'])
         if app.INPUT['alarun']:
-            for mut_sys in app.INPUT['mutants_labels']:
+            for mut_sys, mut_mask_ndx in zip(app.INPUT['mutants_labels'].split(','),
+                                             app.INPUT['mutants_mask'].split(',')):
+
+                mut_com = com.copy()
+                if int(mut_mask_ndx) in mut_com:
+                    old_name = mut_com[int(mut_mask_ndx)].split(':')
+                    old_name[1] = app.INPUT['mutant']
+                    mut_com[int(mut_mask_ndx)] = ':'.join(old_name)
+                mut_rec = rec.copy()
+                if int(mut_mask_ndx) in mut_rec:
+                    old_name = mut_rec[int(mut_mask_ndx)].split(':')
+                    old_name[1] = app.INPUT['mutant']
+                    mut_rec[int(mut_mask_ndx)] = ':'.join(old_name)
+
+                mut_lig = lig.copy()
+                if int(mut_mask_ndx) in mut_lig:
+                    old_name = mut_lig[int(mut_mask_ndx)].split(':')
+                    old_name[1] = app.INPUT['mutant']
+                    mut_lig[int(mut_mask_ndx)] = ':'.join(old_name)
+
+                mut_com_res_info = [value for key, value in sorted(mut_com.items())]
+                mut_rec_res_info = [value for key, value in mut_rec.items()]
+                print(mut_rec_res_info)
+                print(80*'#')
+                mut_lig_res_info = [value for key, value in mut_lig.items()]
+
                 # Do mutant GB
                 if app.INPUT['gbrun']:
 
