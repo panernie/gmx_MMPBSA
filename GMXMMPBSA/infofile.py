@@ -91,7 +91,6 @@ class InfoFile(object):
         outfile.write('size = %d\n' % self.app.mpi_size)
         outfile.write('numframes = %d\n' % self.app.numframes)
         outfile.write('numframes_nmode = %d\n' % self.app.numframes_nmode)
-        outfile.write("mutants_labels = %s\n" % [self.app.mutant_info[x].label for x in self.app.mutant_info])
         outfile.write('using_chamber = %s\n' % self.app.using_chamber)
         outfile.write(self.app.input_file_text)
 
