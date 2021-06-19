@@ -270,10 +270,7 @@ class InputFile(object):
     def print_contents(self, destination):
         """ Prints the contents of the input file """
         # Open a file to write to if need be
-        if hasattr(destination, 'write'):
-            dest = destination
-        else:
-            dest = open(destination, 'w')
+        dest = destination if hasattr(destination, 'write') else open(destination, 'w')
         for namelist in self.ordered_namelist_keys:
             destination.write('%s\n' % self.namelists[namelist])
         # Close the file if we opened it.
@@ -440,10 +437,8 @@ class InputFile(object):
 
                     found = False
                     for key in list(self.namelists[declared_namelists[i]].variables.keys()):
-                        if self.namelists[declared_namelists[i]].variables[key] == \
-                                var[0]:
-                            self.namelists[declared_namelists[i]].variables[key]. \
-                                SetValue(var[1])
+                        if self.namelists[declared_namelists[i]].variables[key] == var[0]:
+                            self.namelists[declared_namelists[i]].variables[key].SetValue(var[1])
                             found = True
                             break
 
