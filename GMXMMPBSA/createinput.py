@@ -111,42 +111,40 @@ def create_inputs(INPUT, prmtop_system, pre):
             if gb_prog == 'mmpbsa_py_energy':
                 gb_mdin = GBNabInput(INPUT)
                 gb_mdin.write_input(pre + 'gb.mdin')
+            elif INPUT['ifqnt']:
+                com_input = deepcopy(INPUT)
+                rec_input = deepcopy(INPUT)
+                lig_input = deepcopy(INPUT)
+                (com_input['qmmask'], rec_input['qmmask'],
+                 lig_input['qmmask']) = prmtop_system.Mask(INPUT['qm_residues'],
+                                                           in_complex=False)
+                if not com_input['qmmask']:
+                    raise AmberError('No valid QM residues chosen!')
+                com_input['qm_theory'] = "'%s'" % com_input['qm_theory']
+                com_input['qmmask'] = "'%s'" % com_input['qmmask']
+                com_input['qmcharge'] = com_input['qmcharge_com']
+                gb_mdin = SanderGBInput(com_input)
+                gb_mdin.write_input(pre + 'gb_qmmm_com.mdin')
+                if not stability:
+                    if not rec_input['qmmask']:
+                        rec_input['ifqnt'] = 0
+                    else:
+                        rec_input['qmmask'] = "'%s'" % rec_input['qmmask']
+                    rec_input['qm_theory'] = "'%s'" % rec_input['qm_theory']
+                    rec_input['qmcharge'] = rec_input['qmcharge_rec']
+                    gb_mdin = SanderGBInput(rec_input)
+                    gb_mdin.write_input(pre + 'gb_qmmm_rec.mdin')
+                    if not lig_input['qmmask']:
+                        lig_input['ifqnt'] = 0
+                    else:
+                        lig_input['qmmask'] = "'%s'" % lig_input['qmmask']
+                    lig_input['qm_theory'] = "'%s'" % lig_input['qm_theory']
+                    lig_input['qmcharge'] = lig_input['qmcharge_lig']
+                    gb_mdin = SanderGBInput(lig_input)
+                    gb_mdin.write_input(pre + 'gb_qmmm_lig.mdin')
             else:
-                # We need separate input files for QM/gmx_MMPBSA
-                if INPUT['ifqnt']:
-                    com_input = deepcopy(INPUT)
-                    rec_input = deepcopy(INPUT)
-                    lig_input = deepcopy(INPUT)
-                    (com_input['qmmask'], rec_input['qmmask'],
-                     lig_input['qmmask']) = prmtop_system.Mask(INPUT['qm_residues'],
-                                                               in_complex=False)
-                    if not com_input['qmmask']:
-                        raise AmberError('No valid QM residues chosen!')
-                    com_input['qm_theory'] = "'%s'" % com_input['qm_theory']
-                    com_input['qmmask'] = "'%s'" % com_input['qmmask']
-                    com_input['qmcharge'] = com_input['qmcharge_com']
-                    gb_mdin = SanderGBInput(com_input)
-                    gb_mdin.write_input(pre + 'gb_qmmm_com.mdin')
-                    if not stability:
-                        if not rec_input['qmmask']:
-                            rec_input['ifqnt'] = 0
-                        else:
-                            rec_input['qmmask'] = "'%s'" % rec_input['qmmask']
-                        rec_input['qm_theory'] = "'%s'" % rec_input['qm_theory']
-                        rec_input['qmcharge'] = rec_input['qmcharge_rec']
-                        gb_mdin = SanderGBInput(rec_input)
-                        gb_mdin.write_input(pre + 'gb_qmmm_rec.mdin')
-                        if not lig_input['qmmask']:
-                            lig_input['ifqnt'] = 0
-                        else:
-                            lig_input['qmmask'] = "'%s'" % lig_input['qmmask']
-                        lig_input['qm_theory'] = "'%s'" % lig_input['qm_theory']
-                        lig_input['qmcharge'] = lig_input['qmcharge_lig']
-                        gb_mdin = SanderGBInput(lig_input)
-                        gb_mdin.write_input(pre + 'gb_qmmm_lig.mdin')
-                else:
-                    gb_mdin = SanderGBInput(INPUT)
-                    gb_mdin.write_input(pre + 'gb.mdin')
+                gb_mdin = SanderGBInput(INPUT)
+                gb_mdin.write_input(pre + 'gb.mdin')
 
         if INPUT['pbrun']:
             pb_prog = 'mmpbsa_py_energy'
