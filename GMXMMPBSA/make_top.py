@@ -426,31 +426,31 @@ class CheckMakeTop:
                 GMXMMPBSA_ERROR("No valid residue for mutation was defined. Please make sure that at least one valid "
                                 "residue is defined")
             for m in mut_info:
-                com_mut_index, part_mut, part_index, labels = m
+                com_mut_index, part_mut, part_index, label = m
                 mut_com_amb_prm = self.makeMutTop(com_amb_prm, com_mut_index)
-                self.mutant_info[f'{labels[1]}{labels[2]}'] = SimpleNamespace(
-                    loc=part_mut, rec_frags=[], lig_frags=[], label=f'{labels[1]}{labels[2]}',
-                    complex_prmtop=self.mutant_complex_pmrtop.format(f"_{labels[1]}{labels[2]}"),
-                    receptor_prmtop=(self.mutant_receptor_pmrtop.format(f"_{labels[1]}{labels[2]}") if part_mut == 'REC'
+                self.mutant_info[label] = SimpleNamespace(com_index=com_mut_index.index,
+                    loc=part_mut, rec_frags=[], lig_frags=[], label=label,
+                    complex_prmtop=self.mutant_complex_pmrtop.format(f"_{label}"),
+                    receptor_prmtop=(self.mutant_receptor_pmrtop.format(f"_{label}") if part_mut == 'REC'
                                                                                   else self.receptor_pmrtop),
-                    ligand_prmtop=(self.mutant_ligand_pmrtop.format(f"_{labels[1]}{labels[2]}") if part_mut == 'LIG'
+                    ligand_prmtop=(self.mutant_ligand_pmrtop.format(f"_{label}") if part_mut == 'LIG'
                                                                                   else self.ligand_pmrtop))
                 # change de PBRadii
                 action = ChRad(mut_com_amb_prm, PBRadii[self.INPUT['PBRadii']])
-                mut_com_amb_prm.write_parm(self.mutant_info[f'{labels[1]}{labels[2]}'].complex_prmtop)
+                mut_com_amb_prm.write_parm(self.mutant_info[label].complex_prmtop)
                 if part_mut == 'REC':
-                    logging.info(f"Detecting mutation ({labels[1]}{labels[2]}) in Receptor. Building "
+                    logging.info(f"Detecting mutation ({label}) in Receptor. Building "
                                  f"Mutant Receptor Topology...")
-                    out_prmtop = self.mutant_info[f'{labels[1]}{labels[2]}'].receptor_prmtop
+                    out_prmtop = self.mutant_info[label].receptor_prmtop
                     if rec_hastop:
                         mtop = self.makeMutTop(rec_amb_prm, part_index)
                     else:
                         mut_com_amb_prm.strip(f'!:{rec_indexes_string}')
                         mtop = mut_com_amb_prm
                 else:
-                    logging.info(f'Detecting mutation ({labels[1]}{labels[2]}) in Ligand. Building '
+                    logging.info(f'Detecting mutation ({label}) in Ligand. Building '
                                  f'Mutant Ligand Topology...')
-                    out_prmtop = self.mutant_info[f'{labels[1]}{labels[2]}'].ligand_prmtop
+                    out_prmtop = self.mutant_info[label].ligand_prmtop
                     if lig_hastop:
                         mtop = self.makeMutTop(lig_amb_prm, part_index)
                     else:
@@ -523,30 +523,30 @@ class CheckMakeTop:
                 GMXMMPBSA_ERROR("No valid residue for mutation was defined. Please make sure that at least one valid "
                                 "residue is defined")
             for m in mut_info:
-                com_mut_index, part_mut, part_index, labels = m
-                self.mutant_info[f'{labels[1]}{labels[2]}'] = SimpleNamespace(loc=part_mut, rec_frags=[], lig_frags=[],
-                                                                              label=f'{labels[1]}{labels[2]}',
-                    complex_prmtop=self.mutant_complex_pmrtop.format(f"_{labels[1]}{labels[2]}"),
-                    receptor_prmtop=(self.mutant_receptor_pmrtop.format(f"_{labels[1]}{labels[2]}") if part_mut == 'REC'
-                                else self.receptor_pmrtop),
-                    ligand_prmtop=(self.mutant_ligand_pmrtop.format(f"_{labels[1]}{labels[2]}") if part_mut == 'LIG'
-                                else self.ligand_pmrtop))
+                com_mut_index, part_mut, part_index, label = m
+                self.mutant_info[label] = SimpleNamespace(com_index=com_mut_index.index, loc=part_mut, rec_frags=[],
+                                                          lig_frags=[], label=label,
+                                                          complex_prmtop=self.mutant_complex_pmrtop.format(f"_{label}"),
+                                                          receptor_prmtop=(self.mutant_receptor_pmrtop.format(
+                                                              f"_{label}") if part_mut == 'REC'
+                                                                           else self.receptor_pmrtop),
+                                                          ligand_prmtop=(self.mutant_ligand_pmrtop.format(
+                                                              f"_{label}") if part_mut == 'LIG'
+                                                                         else self.ligand_pmrtop))
                 start = 1
                 if part_mut == 'REC':
-                    logging.info(f"Detecting mutation ({labels[1]}{labels[2]}) in Receptor. Building "
+                    logging.info(f"Detecting mutation ({label}) in Receptor. Building "
                                  f"Mutant Receptor Structure...")
                     for c, r in enumerate(self.resi['REC']['num']):
-                        end, sfile = self._split_str(start, r, c, f'MUT_{labels[1]}{labels[2]}_REC',
-                                                     self.receptor_str, part_index)
-                        self.mutant_info[f'{labels[1]}{labels[2]}'].rec_frags.append(sfile)
+                        end, sfile = self._split_str(start, r, c, f'MUT_{label}_REC', self.receptor_str, part_index)
+                        self.mutant_info[label].rec_frags.append(sfile)
                         start += end
                 else:
-                    logging.info(f'Detecting mutation ({labels[1]}{labels[2]}) in Ligand. Building '
+                    logging.info(f'Detecting mutation ({label}) in Ligand. Building '
                                  'Mutant Ligand Structure...')
                     for c, r in enumerate(self.resi['LIG']['num']):
-                        end, sfile = self._split_str(start, r, c, f'MUT_{labels[1]}{labels[2]}_LIG', self.ligand_str,
-                                                     part_index)
-                        self.mutant_info[f'{labels[1]}{labels[2]}'].lig_frags.append(sfile)
+                        end, sfile = self._split_str(start, r, c, f'MUT_{label}_LIG', self.ligand_str, part_index)
+                        self.mutant_info[label].lig_frags.append(sfile)
                         start += end
 
     @staticmethod
@@ -767,11 +767,11 @@ class CheckMakeTop:
         info = []
         for r in sele_res_dict:
             res = self.complex_str.residues[r - 1]
+            icode = ':' + res.insertion_code if res.insertion_code else ''
             if not parmed.residue.AminoAcidResidue.has(res.name):
-                GMXMMPBSA_WARNING(f"Selecting residue {res.chain}:{res.name}:{res.number} can't be mutated and will "
-                                  f"be ignored...")
-            label_list = ([res.name, res.chain, str(res.number), res.insertion_code] if res.insertion_code
-                          else [res.name, res.chain, str(res.number)])
+                GMXMMPBSA_WARNING(f"Selecting residue {res.chain}:{res.name}:{res.number}{icode} can't be mutated and "
+                                  f"will be ignored...")
+            label = ''.join([res.chain, str(res.number), icode] if icode else [res.chain, str(res.number)])
 
             if r in self.resl['REC']:
                 part_index = self.resl['REC'].index(r)
@@ -782,11 +782,11 @@ class CheckMakeTop:
             else:
                 part_index = None
                 part_mut = None
-                if res.insertion_code:
+                if icode:
                     GMXMMPBSA_ERROR(f'Residue {res.chain}:{res.number}:{res.insertion_code} not found')
                 else:
                     GMXMMPBSA_ERROR(f'Residue {res.chain}:{res.number} not found')
-            info.append([r, part_mut, part_index, label_list])
+            info.append([r, part_mut, part_index, label])
         return info
 
     def makeMutTop(self, wt_top, mut_index, pdb=False):
