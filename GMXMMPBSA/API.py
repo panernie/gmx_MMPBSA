@@ -28,6 +28,7 @@ from GMXMMPBSA import infofile, main, amber_outputs
 from GMXMMPBSA.exceptions import SetupError, NoFileExists
 from GMXMMPBSA.fake_mpi import MPI
 
+import pandas as pd
 from pathlib import Path
 import parmed
 import os
@@ -56,7 +57,7 @@ class mmpbsa_data(dict):
         self.stability = app.stability
         # Now load the data
         for key in app.calc_types:
-            if key in ['qh']:
+            if key == 'qh':
                 continue
             self[key] = {}
             if key == 'ie':
@@ -232,61 +233,9 @@ class APIPairDecompOut(amber_outputs.PairDecompOut):
                     self.array_data[key][rnum][rnum2]['sas'][i] = sas
                     self.array_data[key][rnum][rnum2]['tot'][i] = tot
 
-def get_delta_decomp(app, decomp_calc_type, data):
-    """
-
-    :param calc_type: gb or pb
-    :param data:
-    :return:
-    """
-    data_out = {decomp_calc_type: {'delta': {}}}
-    # data_out[decomp_calc_type] = {'delta': {}}
-    tempdict = {}
-    # complex, if stability: receptor, ligand
-    com = data[decomp_calc_type]['complex']
-    rec = data[decomp_calc_type]['receptor']
-    lig = data[decomp_calc_type]['ligand']
-    for p in com:
-        tempdict[p] = {}
-        for res in com[p]:
-            if res not in tempdict[p]:
-                tempdict[p][res] = {}
-            if app.INPUT['idecomp'] in [1, 2]:
-                if rec and res in rec[p]:
-                    for para in com[p][res]:
-                        d = com[p][res][para] - rec[p][res][para]
-                        tempdict[p][res][para] = d
-                elif lig and res in lig[p]:
-                    for para in com[p][res]:
-                        d = com[p][res][para] - lig[p][res][para]
-                        tempdict[p][res][para] = d
-            else:
-                if rec and res in rec[p]:
-                    for resp in com[p][res]:
-                        if resp in rec[p][res]:
-                            tempdict[p][res][resp] = {}
-                            for para in com[p][res][resp]:
-                                tempdict[p][res][resp][para] = com[p][res][resp][para] - rec[p][res][resp][para]
-                        else:
-                            tempdict[p][res][resp] = {}
-                            for para in com[p][res][resp]:
-                                tempdict[p][res][resp][para] = com[p][resp][res][para]
-                elif lig and res in lig[p]:
-                    for resp in com[p][res]:
-                        if resp in lig[p][res]:
-                            tempdict[p][res][resp] = {}
-                            for para in com[p][res][resp]:
-                                tempdict[p][res][resp][para] = com[p][res][resp][para] - lig[p][res][resp][para]
-                        else:
-                            tempdict[p][res][resp] = {}
-                            for para in com[p][res][resp]:
-                                tempdict[p][res][resp][para] = com[p][resp][res][para]
-    return tempdict
-
 
 def _mask2reslist(mask, com_str, app):
     mol = {}
-
     rmstr = app.INPUT[mask].strip(':')
     ress = []
     for x in rmstr.split(','):
@@ -295,7 +244,6 @@ def _mask2reslist(mask, com_str, app):
             ress.extend(range(int(start), int(end) + 1))
         else:
             ress.append(int(x))
-
     for rn in ress:
         residue = com_str.residues[rn - 1]
         icode = ':' + f'{residue.insertion_code}' if f'{residue.insertion_code}' else ''
@@ -304,7 +252,71 @@ def _mask2reslist(mask, com_str, app):
     return mol
 
 
-def load_gmxmmpbsa_info(fname, make_df=False):
+def _transform_from_lvl_models(nd):
+    data = []
+    for k, v in nd.items():
+        for k1, v1 in v.items():
+                data.append([(k, k1), v1])
+    return data
+
+
+def _transform_from_lvl_decomp(nd):
+    data = []
+    for k, v in nd.items(): # model
+        for k1, v1 in v.items(): # mol
+            for k2, v2 in v1.items(): # TDC, SDC, BDC
+                for k3, v3 in v2.items(): # residue
+                    for k4, v4 in v3.items(): # residue in per-wise or terms in per-res
+                        if isinstance(v4, dict): # per-wise
+                            for k5, v5 in v4.items():
+                                data.append([(k, k1, k2, k3, k4, k5), v5])
+                        else:
+                            data.append([(k, k1, k2, k3, k4), v4])
+    return data
+
+
+def _transform_mmpbsa_data(data, app):
+    # TODO: include rmsd and Rg for FES?
+    mmpbsa_data = {'energy': None, 'decomp': None, 'ie': None, 'nmode': None, 'qh': None}
+
+    interval = app.INPUT['interval']
+    start = app.INPUT['startframe']
+    frames = [x for x in range(start, start + app.numframes * interval, interval)]
+    nmode_frames = [x for x in range(app.INPUT['nmstartframe'], app.INPUT['nmstartframe'] +
+                                              app.numframes_nmode * app.INPUT['nminterval'],
+                                              app.INPUT['nminterval'])]
+    end = app.INPUT['endframe']
+
+    for key, value in data.items():
+        if key in ['gb', 'pb', 'rism gf', 'rism std']:
+            e_data = {(key,) + x: v for x, v in _transform_from_lvl_models(value)}
+            mmpbsa_data['energy'] = pd.DataFrame(e_data, index=frames)
+        elif key == 'decomp':
+            d_data = {x: v for x, v in _transform_from_lvl_decomp(value)}
+            mmpbsa_data['decomp'] = pd.DataFrame(d_data, index=frames)
+        elif key == 'ie':
+            ie_data = {x: v for x, v in value.items() if x == 'data'}
+            ie_rest = {x: v for x, v in value.items() if x != 'data'}
+            mmpbsa_data['ie'] = {'data': pd.DataFrame(ie_data, index=frames)}
+            mmpbsa_data['ie'].update(ie_rest)
+        elif key in ['nmode' 'qh']:
+            e_data = {(key,) + x: v for x, v in _transform_from_lvl_models(value)}
+            if key == 'nmode':
+                mmpbsa_data['nmode'] = pd.DataFrame(e_data, index=nmode_frames)
+            else:
+                mmpbsa_data['qh'] = pd.DataFrame(e_data)
+    return mmpbsa_data
+
+
+def _get_delta_decomp(df: pd.DataFrame):
+    for x in df.columns.levels[0]:
+        rest = df[x]['complex'] - pd.concat([df[x]['receptor'], df[x]['ligand']], axis=1)
+        rest.columns = pd.MultiIndex.from_product([[x], ['delta']] + rest.columns.levels)
+        df = pd.concat([df, rest], axis=1)
+    return df
+
+
+def load_gmxmmpbsa_info(fname, make_df=True):
     """
     Loads up an gmx_MMPBSA info file and returns a mmpbsa_data instance with all
     of the data available in numpy arrays if numpy is available. The returned
@@ -380,10 +392,7 @@ def load_gmxmmpbsa_info(fname, make_df=False):
     except:
         complex_str = parmed.read_PDB(app.FILES.prefix + 'COM.pdb')
     # Get receptor and ligand masks
-    mut_index = None
-
     rec = _mask2reslist('receptor_mask', complex_str, app)
-
     lig = _mask2reslist('ligand_mask', complex_str, app)
 
     com = rec.copy()
@@ -410,7 +419,6 @@ def load_gmxmmpbsa_info(fname, make_df=False):
                                                                           rec_res_info).array_data
                     return_data['decomp']['gb']['ligand'] = DecompClass(app.FILES.prefix + 'ligand_gb.mdout',
                                                                         lig_res_info).array_data
-                    return_data['decomp']['gb']['delta'] = get_delta_decomp(app, 'gb', return_data['decomp'])
             # Do normal PB
             if app.INPUT['pbrun']:
                 return_data['decomp'] = {'pb' : {}}
@@ -421,7 +429,6 @@ def load_gmxmmpbsa_info(fname, make_df=False):
                                                                           rec_res_info).array_data
                     return_data['decomp']['pb']['ligand'] = DecompClass(app.FILES.prefix + 'ligand_pb.mdout',
                                                                         lig_res_info).array_data
-                    return_data['decomp']['pb']['delta'] = get_delta_decomp(app, 'pb', return_data['decomp'])
         if app.INPUT['alarun']:
             for mut_sys, mut_mask_ndx in zip(app.INPUT['mutants_labels'].split(','),
                                              app.INPUT['mutants_mask'].split(',')):
@@ -445,13 +452,10 @@ def load_gmxmmpbsa_info(fname, make_df=False):
 
                 mut_com_res_info = [value for key, value in sorted(mut_com.items())]
                 mut_rec_res_info = [value for key, value in mut_rec.items()]
-                print(mut_rec_res_info)
-                print(80*'#')
                 mut_lig_res_info = [value for key, value in mut_lig.items()]
 
                 # Do mutant GB
                 if app.INPUT['gbrun']:
-
                     return_data.mutants[mut_sys]['decomp'] = {'gb' : {}}
                     return_data.mutants[mut_sys]['decomp']['gb']['complex'] = DecompClass(
                         app.FILES.prefix + f'mutant_complex_gb_{mut_sys}.mdout', mut_com_res_info).array_data
@@ -460,8 +464,6 @@ def load_gmxmmpbsa_info(fname, make_df=False):
                             app.FILES.prefix + f'mutant_receptor_gb_{mut_sys}.mdout', mut_rec_res_info).array_data
                         return_data.mutants[mut_sys]['decomp']['gb']['ligand'] = DecompClass(
                             app.FILES.prefix + f'mutant_ligand_gb_{mut_sys}.mdout', mut_lig_res_info).array_data
-                        return_data.mutants[mut_sys]['decomp']['gb']['delta'] = get_delta_decomp(
-                            app, 'gb', return_data.mutants[mut_sys]['decomp'])
                 # Do mutant PB
                 if app.INPUT['pbrun']:
                     return_data.mutants[mut_sys]['decomp'] = {'pb' : {}}
@@ -472,12 +474,25 @@ def load_gmxmmpbsa_info(fname, make_df=False):
                             app.FILES.prefix + f'mutant_receptor_pb_{mut_sys}.mdout', mut_rec_res_info).array_data
                         return_data.mutants[mut_sys]['decomp']['pb']['ligand'] = DecompClass(
                             app.FILES.prefix + f'mutant_ligand_pb_{mut_sys}.mdout', mut_lig_res_info).array_data
-                        return_data.mutants[mut_sys]['decomp']['pb']['delta'] = get_delta_decomp(
-                            app, 'pb', return_data.mutants[mut_sys]['decomp'])
-
 
     app_namespace = SimpleNamespace(FILES=app.FILES, INPUT=app.INPUT, numframes=app.numframes,
                                     numframes_nmode=app.numframes_nmode)
+    if not make_df:
+        return return_data, app_namespace
 
-    return return_data, app_namespace
+    output_data = type('calc_type_dict', (dict,), {'mutants': {}})()
+    #
+    output_data.update(_transform_mmpbsa_data(return_data, app))
+    output_data.mutants.update({
+        mut_sys: _transform_mmpbsa_data(value, app)
+        for mut_sys, value in return_data.mutants.items()
+    })
+    # if decomp clacluate the delta energy
+    if output_data['decomp'] is not None:
+        output_data['decomp'] = _get_delta_decomp(output_data['decomp'])
+        # Iterate over all mutants
+        if output_data.mutants:
+            for mut_sys in output_data.mutants:
+                output_data.mutants[mut_sys]['decomp'] = _get_delta_decomp(output_data.mutants[mut_sys]['decomp'])
+    return output_data, app_namespace
 
