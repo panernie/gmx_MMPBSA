@@ -316,6 +316,12 @@ def _get_delta_decomp(df: pd.DataFrame):
     return df
 
 
+class data_store(dict):
+    def __init__(self):
+        super().__init__()
+        self.mutants = {}
+
+
 def load_gmxmmpbsa_info(fname, make_df=True):
     """
     Loads up an gmx_MMPBSA info file and returns a mmpbsa_data instance with all
@@ -480,7 +486,7 @@ def load_gmxmmpbsa_info(fname, make_df=True):
     if not make_df:
         return return_data, app_namespace
 
-    output_data = type('calc_type_dict', (dict,), {'mutants': {}})()
+    output_data = data_store()
     #
     output_data.update(_transform_mmpbsa_data(return_data, app))
     output_data.mutants.update({
