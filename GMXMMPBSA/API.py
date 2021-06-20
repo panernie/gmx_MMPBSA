@@ -62,81 +62,55 @@ class mmpbsa_data(dict):
             if key == 'ie':
                 if not self.stability:
                     self[key] = {'data': app.calc_types[key].data['data'], 'value': app.calc_types[key].data[
-                        'iedata'].avg(), 'frames': [app.calc_types[key].data['frames'][-app.calc_types[
-                        key].data['ieframes']], app.calc_types[key].data['frames'][-1]]}
+                        'iedata'].avg(), 'ie_startframe': app.calc_types[key].data['frames'][-app.calc_types[
+                        key].data['ieframes']], 'ieframes': app.calc_types[key].data['ieframes'], 'ie_segment':
+                        app.INPUT['ie_segment']}
                 continue
-            tmpdict = {dkey: make_array(app.calc_types[key]['complex'].data[dkey])
+            self[key]['complex'] = {dkey: make_array(app.calc_types[key]['complex'].data[dkey])
                         for dkey in app.calc_types[key]['complex'].data}
-            self[key]['complex'] = tmpdict
             if not self.stability:
-                tmpdict = { dkey: make_array(app.calc_types[key]['receptor'].data[dkey])
+                self[key]['receptor'] = { dkey: make_array(app.calc_types[key]['receptor'].data[dkey])
                             for dkey in app.calc_types[key]['receptor'].data}
-                self[key]['receptor'] = tmpdict
-                tmpdict = {dkey: make_array(app.calc_types[key]['ligand'].data[dkey])
+                self[key]['ligand'] = {dkey: make_array(app.calc_types[key]['ligand'].data[dkey])
                            for dkey in app.calc_types[key]['ligand'].data}
-                self[key]['ligand'] = tmpdict
-                tmpdict = {dkey: make_array(app.calc_types[key]['delta'].data[dkey])
+                self[key]['delta'] = {dkey: make_array(app.calc_types[key]['delta'].data[dkey])
                            for dkey in app.calc_types[key]['delta'].data}
-                self[key]['delta'] = tmpdict
 
         # Are we doing a mutant?
-
         if app.calc_types.mutants:
-
-            # self.mutant = {}
             for mut_sys, mutants_items in app.calc_types.mutants.items():
-                # if key == 'qh': continue
                 self.mutants[mut_sys] = {}
                 for key in mutants_items:
-
+                    if key == 'qh':
+                        continue
                     self.mutants[mut_sys][key] = {}
                     if key == 'ie':
                         if not self.stability:
                             self.mutants[mut_sys][key] = {
                                 'data': app.calc_types.mutants[mut_sys][key].data['data'],
                                 'value': app.calc_types.mutants[mut_sys][key].data['iedata'].avg(),
-                                'frames': [app.calc_types.mutants[mut_sys][key].data['frames'][-app.calc_types.mutants[
-                                            mut_sys][key].data['ieframes']],
-                                           app.calc_types.mutants[mut_sys][key].data['frames'][-1]]}
+                                'ie_startframe': app.calc_types[key].data['frames'][-app.calc_types[key].data[
+                                    'ieframes']],
+                                'ieframes': app.calc_types[key].data['ieframes'],
+                                'ie_segment':app.INPUT['ie_segment']}
                         continue
 
-                    tmpdict = {
-                        dkey: make_array(
-                            app.calc_types.mutants[mut_sys][key]['complex'].data[dkey]
-                        )
-                        for dkey in app.calc_types.mutants[mut_sys][key]['complex'].data
-                    }
+                    self.mutants[mut_sys][key]['complex'] = {
+                        dkey: make_array(app.calc_types.mutants[mut_sys][key]['complex'].data[dkey])
+                        for dkey in app.calc_types.mutants[mut_sys][key]['complex'].data}
 
-
-                    self.mutants[mut_sys][key]['complex'] = tmpdict
                     if not self.stability:
-                        self.mutants[mut_sys][key]['receptor'] = {}
-                        tmpdict = {
-                            dkey: make_array(
-                                app.calc_types.mutants[mut_sys][key]['receptor'].data[dkey]
-                            )
-                            for dkey in app.calc_types.mutants[mut_sys][key][
-                                'receptor'
-                            ].data
-                        }
+                        self.mutants[mut_sys][key]['receptor'] = {
+                            dkey: make_array(app.calc_types.mutants[mut_sys][key]['receptor'].data[dkey])
+                            for dkey in app.calc_types.mutants[mut_sys][key]['receptor'].data}
 
-                        self.mutants[mut_sys][key]['receptor'] = tmpdict
-                        tmpdict = {
-                            dkey: make_array(
-                                app.calc_types.mutants[mut_sys][key]['ligand'].data[dkey]
-                            )
-                            for dkey in app.calc_types.mutants[mut_sys][key]['ligand'].data
-                        }
+                        self.mutants[mut_sys][key]['ligand'] = {
+                            dkey: make_array(app.calc_types.mutants[mut_sys][key]['ligand'].data[dkey])
+                            for dkey in app.calc_types.mutants[mut_sys][key]['ligand'].data}
 
-                        self.mutants[mut_sys][key]['ligand'] = tmpdict
-                        tmpdict = {
-                            dkey: make_array(
-                                app.calc_types.mutants[mut_sys][key]['delta'].data[dkey]
-                            )
-                            for dkey in app.calc_types.mutants[mut_sys][key]['delta'].data
-                        }
-
-                        self.mutants[mut_sys][key]['delta'] = tmpdict
+                        self.mutants[mut_sys][key]['delta'] = {
+                            dkey: make_array(app.calc_types.mutants[mut_sys][key]['delta'].data[dkey])
+                            for dkey in app.calc_types.mutants[mut_sys][key]['delta'].data}
 
 
     def __iadd__(self, other):
