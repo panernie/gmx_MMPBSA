@@ -129,14 +129,11 @@ class mmpbsa_data(dict):
             used_keys.append(key)
             try:
                 for dkey in self[key]['complex']:
-                    _combine_np_arrays(self[key]['complex'][dkey],
-                                       other[key]['complex'][dkey])
+                    np.append(self[key]['complex'][dkey], other[key]['complex'][dkey])
                 for dkey in self[key]['receptor']:
-                    _combine_np_arrays(self[key]['receptor'][dkey],
-                                       other[key]['receptor'][dkey])
+                    np.append(self[key]['receptor'][dkey], other[key]['receptor'][dkey])
                 for dkey in self[key]['ligand']:
-                    _combine_np_arrays(self[key]['ligand'][dkey],
-                                       other[key]['ligand'][dkey])
+                    np.append(self[key]['ligand'][dkey], other[key]['ligand'][dkey])
             except KeyError:
                 pass
         for key in other:
@@ -155,38 +152,19 @@ class mmpbsa_data(dict):
                     used_keys_mutant.append(key)
                     try:
                         for dkey in self[key]['complex']:
-                            _combine_np_arrays(self[key]['complex'][dkey],
-                                               other[key]['complex'][dkey])
+                            np.append(self[key]['complex'][dkey], other[key]['complex'][dkey])
                         for dkey in self[key]['receptor']:
-                            _combine_np_arrays(self[key]['receptor'][dkey],
-                                               other[key]['receptor'][dkey])
+                            np.append(self[key]['receptor'][dkey], other[key]['receptor'][dkey])
                         for dkey in self[key]['ligand']:
-                            _combine_np_arrays(self[key]['ligand'][dkey],
-                                               other[key]['ligand'][dkey])
+                            np.append(self[key]['ligand'][dkey], other[key]['ligand'][dkey])
                     except KeyError:
                         pass
-
-                    # we only need one of all mutants since all are the same structure
-                    break
 
             for mut_sys, mutants_items in other.mutants.items():
                 for key in mutants_items:
                     if key in used_keys_mutant:
                         continue
                     self.mutants[mut_sys][key] = deepcopy(other.mutants[mut_sys][key])
-
-def _combine_np_arrays(nparray1, nparray2):
-    origsize = nparray1.shape[0]
-    nparray1.resize(origsize + nparray2.shape[0])
-    for i in range(nparray2.shape[0]):
-        nparray1[origsize + i] = nparray2[i]
-
-    def load_topologies(self):
-        """
-        Loads the topology files so we have residue information for decomp
-        analyses
-        """
-        self.app.loadcheck_prmtops()
 
 class APIDecompOut(amber_outputs.DecompOut):
 
